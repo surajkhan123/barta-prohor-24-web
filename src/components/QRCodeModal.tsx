@@ -5,18 +5,15 @@ import {
   Copy, 
   Check, 
   X, 
-  Share2, 
   ExternalLink, 
-  Smartphone, 
-  Globe, 
   Send,
   Printer,
-  Sparkles,
-  Tv,
   Camera,
   Radio,
-  Layers
+  ImageIcon,
+  Loader2
 } from 'lucide-react';
+import { toPng } from 'html-to-image';
 import { BrandLogo } from './BrandLogo';
 
 interface QRCodeModalProps {
@@ -33,11 +30,13 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
   const [currentUrl, setCurrentUrl] = useState('https://barta-prohor-24-web.vercel.app/');
   const [copied, setCopied] = useState(false);
   const [cardStyle, setCardStyle] = useState<'news-card' | 'classic'>('news-card');
+  const [isDownloading, setIsDownloading] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
+  const classicCardRef = useRef<HTMLDivElement>(null);
 
   if (!isOpen) return null;
 
-  // High-res QR code generated for the verified Vercel web link
+  // High-res QR code generated for the verified portal web link
   const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(
     currentUrl
   )}&color=1a1a1a&bgcolor=ffffff&margin=1`;
@@ -57,6 +56,44 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
     window.print();
   };
 
+  // Download high-resolution PNG image
+  const handleDownloadCardImage = async () => {
+    const targetElement = cardStyle === 'news-card' ? printRef.current : classicCardRef.current;
+    if (!targetElement) return;
+
+    try {
+      setIsDownloading(true);
+      const dataUrl = await toPng(targetElement, {
+        cacheBust: true,
+        quality: 0.98,
+        pixelRatio: 2,
+        backgroundColor: '#ffffff'
+      });
+
+      const link = document.createElement('a');
+      link.download = cardStyle === 'news-card' ? 'BartaProhor24_PressCard.png' : 'BartaProhor24_QRCode.png';
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error('Failed to generate image via html-to-image:', err);
+      // Fallback direct QR image download
+      try {
+        const response = await fetch(qrCodeImageUrl);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = 'BartaProhor24_QRCode.png';
+        link.href = blobUrl;
+        link.click();
+        URL.revokeObjectURL(blobUrl);
+      } catch {
+        window.open(qrCodeImageUrl, '_blank');
+      }
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-xs overflow-y-auto">
       <div 
@@ -72,11 +109,8 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
             <div>
               <h3 className="font-bold text-sm sm:text-base leading-none font-['Noto_Serif_Bengali'] flex items-center gap-2">
                 <span>পাঠকদের জন্য ফটো নিউজ কিউআর কার্ড</span>
-                <span className="bg-[#b91c1c] text-white text-[10px] px-1.5 py-0.5 rounded-xs font-mono">
-                  VERCEL LIVE
-                </span>
               </h3>
-              <p className="text-[11px] text-[#a3a3a3] mt-1 font-['Noto_Serif_Bengali']">
+              <p className="text-[11px] text-[#a3a3a3] mt-1 font-mono">
                 {currentUrl}
               </p>
             </div>
@@ -118,14 +152,14 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
           </div>
 
           <span className="text-[11px] text-[#737373] hidden sm:inline font-mono">
-            320 x 320 DPI Ready
+            PNG Image Ready
           </span>
         </div>
 
         {/* Scrollable Modal Body */}
         <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
           {cardStyle === 'news-card' ? (
-            /* Beautiful Newspaper Press Poster Frame */
+            /* Newspaper Press Poster Frame */
             <div 
               ref={printRef}
               id="printable-news-card"
@@ -137,7 +171,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
                 <span>ONLINE 24x7</span>
               </div>
 
-              {/* Masthead Header with New Logo */}
+              {/* Masthead Header with Brand Logo */}
               <div className="text-center space-y-2">
                 <div className="flex items-center justify-center">
                   <BrandLogo size="md" showTagline={false} />
@@ -154,6 +188,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
                   <img
                     src={qrCodeImageUrl}
                     alt="Barta Prohor 24 Live QR"
+                    crossOrigin="anonymous"
                     className="w-32 h-32 sm:w-36 sm:h-36 object-contain"
                   />
                   <div className="text-[9px] text-center font-mono font-bold text-[#737373] mt-1 uppercase">
@@ -188,16 +223,23 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
               {/* Footer Note */}
               <div className="text-[10px] text-center text-[#737373] border-t border-[#ded8cb] pt-2 flex items-center justify-between">
                 <span>পশ্চিমবঙ্গ ও বিশ্বের তাজা সংবাদ</span>
-                <span className="font-mono">VERCEL CLOUD LIVE</span>
+                <span className="font-mono font-bold text-[#1a1a1a]">BARTA PROHOR 24</span>
               </div>
             </div>
           ) : (
             /* Classic Large QR Frame */
-            <div className="p-6 bg-white border-2 border-[#ded8cb] rounded-xs shadow-xs text-center space-y-4 max-w-sm mx-auto">
+            <div 
+              ref={classicCardRef}
+              className="p-6 bg-white border-2 border-[#ded8cb] rounded-xs shadow-xs text-center space-y-4 max-w-sm mx-auto"
+            >
+              <div className="flex items-center justify-center mb-2">
+                <BrandLogo size="sm" showTagline={false} />
+              </div>
               <div className="p-3 bg-[#f8f7f2] border border-[#ded8cb] rounded-xs inline-block">
                 <img
                   src={qrCodeImageUrl}
                   alt="Barta Prohor 24 Live QR"
+                  crossOrigin="anonymous"
                   className="w-48 h-48 sm:w-56 sm:h-56 mx-auto object-contain"
                 />
               </div>
@@ -215,16 +257,23 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
 
           {/* Action Buttons Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 font-['Noto_Serif_Bengali'] pt-1">
-            <a
-              href={qrCodeImageUrl}
-              download="BartaProhor24_Vercel_QRCode.png"
-              target="_blank"
-              rel="noreferrer"
-              className="bg-[#1a1a1a] hover:bg-[#333333] text-white text-xs font-bold py-2.5 px-3 rounded-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-[#1a1a1a]"
+            <button
+              onClick={handleDownloadCardImage}
+              disabled={isDownloading}
+              className="bg-[#1a1a1a] hover:bg-[#333333] text-white text-xs font-bold py-2.5 px-3 rounded-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-[#1a1a1a] disabled:opacity-50"
             >
-              <Download className="w-4 h-4 text-[#fbbf24]" />
-              <span>QR ইমেজ সেভ</span>
-            </a>
+              {isDownloading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-[#fbbf24]" />
+                  <span>ইমেজ তৈরি হচ্ছে...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 text-[#fbbf24]" />
+                  <span>PNG ইমেজ ডাউনলোড</span>
+                </>
+              )}
+            </button>
 
             <button
               onClick={handleWhatsAppShare}
@@ -246,7 +295,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
           {/* URL Bar & Copy */}
           <div className="bg-white border border-[#ded8cb] p-2.5 rounded-xs space-y-1.5">
             <div className="flex items-center justify-between text-[11px] font-bold text-[#525252] font-['Noto_Serif_Bengali']">
-              <span>আপনার ভেরিফাইড Vercel লাইভ লিংক:</span>
+              <span>অফিসিয়াল নিউজ পোর্টাল লিংক:</span>
               <a
                 href={currentUrl}
                 target="_blank"
