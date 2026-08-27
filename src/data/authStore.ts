@@ -10,15 +10,7 @@ const PASSWORD_UPDATED_KEY = 'bp24_admin_password_updated_at';
 
 // Recovery Config Keys
 const RECOVERY_EMAIL_KEY = 'bp24_admin_recovery_email';
-const RECOVERY_KEY_STORAGE = 'bp24_admin_emergency_key';
-const RECOVERY_QUESTION_KEY = 'bp24_admin_sec_question';
-const RECOVERY_ANSWER_KEY = 'bp24_admin_sec_answer';
-
-// Default Master Keys for Emergency Access
-export const MASTER_EMERGENCY_KEYS = ['BP24-ADMIN', 'BP24-7780', '7780', '2424', 'BARTA24'];
 export const DEFAULT_RECOVERY_EMAIL = 'surajkhanghatal@gmail.com';
-export const DEFAULT_SEC_QUESTION = 'আপনার নিউজ পোর্টালের নাম কি?';
-export const DEFAULT_SEC_ANSWER = 'বার্তা প্রহর';
 
 /**
  * Retrieve the active admin password from storage.
@@ -123,78 +115,6 @@ export function setRecoveryEmail(email: string): void {
   } catch {
     // ignore
   }
-}
-
-/**
- * Get Security Question & Answer
- */
-export function getSecurityQuestion(): { question: string; answer: string } {
-  try {
-    const question = localStorage.getItem(RECOVERY_QUESTION_KEY) || DEFAULT_SEC_QUESTION;
-    const answer = localStorage.getItem(RECOVERY_ANSWER_KEY) || DEFAULT_SEC_ANSWER;
-    return { question, answer };
-  } catch {
-    return { question: DEFAULT_SEC_QUESTION, answer: DEFAULT_SEC_ANSWER };
-  }
-}
-
-/**
- * Set Security Question & Answer
- */
-export function setSecurityQuestion(question: string, answer: string): void {
-  try {
-    localStorage.setItem(RECOVERY_QUESTION_KEY, question.trim());
-    localStorage.setItem(RECOVERY_ANSWER_KEY, answer.trim().toLowerCase());
-  } catch {
-    // ignore
-  }
-}
-
-/**
- * Verify Master Emergency Recovery Key
- */
-export function verifyMasterRecoveryKey(key: string): boolean {
-  if (!key) return false;
-  const clean = key.trim().toUpperCase();
-  
-  // Check default master keys
-  if (MASTER_EMERGENCY_KEYS.some(k => k.toUpperCase() === clean)) {
-    return true;
-  }
-
-  // Check custom recovery key if saved
-  try {
-    const custom = localStorage.getItem(RECOVERY_KEY_STORAGE);
-    if (custom && custom.trim().toUpperCase() === clean) {
-      return true;
-    }
-  } catch {
-    // ignore
-  }
-
-  return false;
-}
-
-/**
- * Verify Security Answer
- */
-export function verifySecurityAnswer(inputAnswer: string): boolean {
-  if (!inputAnswer) return false;
-  const { answer } = getSecurityQuestion();
-  const cleanInput = inputAnswer.trim().toLowerCase();
-  const cleanAnswer = answer.trim().toLowerCase();
-
-  return (
-    cleanInput === cleanAnswer ||
-    cleanInput.includes(cleanAnswer) ||
-    cleanAnswer.includes(cleanInput) ||
-    cleanInput === 'barta prohor' ||
-    cleanInput === 'barta prohor 24' ||
-    cleanInput === 'বার্তা প্রহর' ||
-    cleanInput === 'বার্তা প্রহর ২৪' ||
-    cleanInput === 'ghatal' ||
-    cleanInput === 'ঘাটাল'
-  );
 }
 
 // Memory cache for active OTP code
