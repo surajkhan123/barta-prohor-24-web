@@ -51,7 +51,9 @@ import {
   updateStoredAdminPassword, 
   getPasswordLastUpdated,
   getRecoveryEmail,
-  setRecoveryEmail
+  setRecoveryEmail,
+  getSecurityQuestion,
+  setSecurityQuestion
 } from '../data/authStore';
 import { ForgotPasswordView } from './ForgotPasswordView';
 
@@ -157,6 +159,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
   // Recovery Config in Settings
   const [recoveryEmailState, setRecoveryEmailState] = useState<string>(() => getRecoveryEmail());
+  const [secQuestionState, setSecQuestionState] = useState<string>(() => getSecurityQuestion().question);
+  const [secAnswerState, setSecAnswerState] = useState<string>(() => getSecurityQuestion().answer);
   const [recoverySaveSuccess, setRecoverySaveSuccess] = useState('');
 
   useEffect(() => {
@@ -182,9 +186,12 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     setRecoverySaveSuccess('');
     if (recoveryEmailState.trim()) {
       setRecoveryEmail(recoveryEmailState.trim());
-      setRecoverySaveSuccess('রিকভারি জিমেইল সফলভাবে ডেটাবেজে সংরক্ষিত হয়েছে!');
-      setTimeout(() => setRecoverySaveSuccess(''), 4000);
     }
+    if (secQuestionState.trim() && secAnswerState.trim()) {
+      setSecurityQuestion(secQuestionState.trim(), secAnswerState.trim());
+    }
+    setRecoverySaveSuccess('রিকভারি সেটিংস সফলভাবে ডেটাবেজে সংরক্ষিত হয়েছে!');
+    setTimeout(() => setRecoverySaveSuccess(''), 4000);
   };
 
   const handleUpdatePassword = (e: React.FormEvent) => {
@@ -636,17 +643,19 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         {!isAuthenticated ? (
           isForgotPassword ? (
             /* Forgot Password / Recovery Flow */
-            <ForgotPasswordView
-              onBackToLogin={() => setIsForgotPassword(false)}
-              onResetSuccess={(newPass) => {
-                setAdminPin(newPass);
-                setIsAuthenticated(true);
-                sessionStorage.setItem('bp24_admin_logged', 'true');
-                setIsForgotPassword(false);
-                setResetNotification('আপনার নতুন পাসওয়ার্ড সফলভাবে ডেটাবেজে সংরক্ষিত হয়েছে এবং আপনি স্বয়ংক্রিয়ভাবে লগইন হয়েছেন!');
-                setTimeout(() => setResetNotification(''), 6000);
-              }}
-            />
+            <div className="flex-1 overflow-y-auto w-full flex items-center justify-center p-2 sm:p-4">
+              <ForgotPasswordView
+                onBackToLogin={() => setIsForgotPassword(false)}
+                onResetSuccess={(newPass) => {
+                  setAdminPin(newPass);
+                  setIsAuthenticated(true);
+                  sessionStorage.setItem('bp24_admin_logged', 'true');
+                  setIsForgotPassword(false);
+                  setResetNotification('আপনার নতুন পাসওয়ার্ড সফলভাবে ডেটাবেজে সংরক্ষিত হয়েছে এবং আপনি স্বয়ংক্রিয়ভাবে লগইন হয়েছেন!');
+                  setTimeout(() => setResetNotification(''), 6000);
+                }}
+              />
+            </div>
           ) : (
             /* Login Screen */
             <div className="p-6 sm:p-12 flex flex-col items-center justify-center text-center space-y-5 flex-1">
@@ -1765,7 +1774,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                   </div>
                 </div>
 
-                {/* Card 2: Recovery Gmail Settings */}
+                {/* Card 2: Recovery Gmail & Security Question Settings */}
                 <div className="bg-white p-5 sm:p-6 rounded-xs border border-[#ded8cb] space-y-4 max-w-lg mx-auto shadow-xs">
                   <div className="flex items-center gap-3 border-b border-[#ded8cb] pb-3">
                     <div className="w-10 h-10 rounded-full bg-[#eff6ff] text-[#2563eb] flex items-center justify-center border border-[#bfdbfe]">
@@ -1773,10 +1782,10 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                     </div>
                     <div>
                       <h4 className="font-bold text-sm sm:text-base text-[#1a1a1a]">
-                        অ্যাডমিন রিকভারি জিমেইল সেটিংস
+                        অ্যাডমিন রিকভারি সেটিংস (Gmail ও নিরাপত্তা প্রশ্ন)
                       </h4>
                       <p className="text-xs text-[#737373]">
-                        পাসওয়ার্ড ভুলে গেলে ওটিপি (OTP) কোড এই জিমেইল অ্যাড্রেসে পাঠানো হবে
+                        পাসওয়ার্ড ভুলে গেলে ওটিপি কোড ও সিকিউরিটি ভেরিফিকেশনে এই তথ্যগুলো ব্যবহৃত হবে
                       </p>
                     </div>
                   </div>
@@ -1804,12 +1813,40 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       />
                     </div>
 
+                    <div>
+                      <label className="block text-xs font-bold text-[#1a1a1a] mb-1">
+                        নিরাপত্তা প্রশ্ন (Security Question):
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={secQuestionState}
+                        onChange={(e) => setSecQuestionState(e.target.value)}
+                        placeholder="যেমন: আপনার প্রিয় সিকিউরিটি কিওয়ার্ড কি?"
+                        className="w-full bg-[#fbf9f4] border border-[#ded8cb] rounded-xs px-3 py-2 text-xs text-[#1a1a1a] focus:outline-hidden focus:border-[#2563eb]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#1a1a1a] mb-1">
+                        নিরাপত্তা প্রশ্নের গোপন উত্তর (Secret Answer):
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={secAnswerState}
+                        onChange={(e) => setSecAnswerState(e.target.value)}
+                        placeholder="যেমন: Oppo"
+                        className="w-full bg-[#fbf9f4] border border-[#ded8cb] rounded-xs px-3 py-2 text-xs text-[#1a1a1a] focus:outline-hidden focus:border-[#2563eb]"
+                      />
+                    </div>
+
                     <button
                       type="submit"
                       className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold py-2.5 px-4 rounded-xs text-xs cursor-pointer border border-[#1e40af] flex items-center justify-center gap-2 shadow-xs transition-colors"
                     >
                       <Save className="w-4 h-4" />
-                      <span>রিকভারি জিমেইল সংরক্ষণ করুন</span>
+                      <span>রিকভারি তথ্য সংরক্ষণ করুন</span>
                     </button>
                   </form>
                 </div>

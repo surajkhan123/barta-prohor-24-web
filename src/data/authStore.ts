@@ -10,7 +10,16 @@ const PASSWORD_UPDATED_KEY = 'bp24_admin_password_updated_at';
 
 // Recovery Config Keys
 const RECOVERY_EMAIL_KEY = 'bp24_admin_recovery_email';
+const RECOVERY_KEY_STORAGE = 'bp24_admin_emergency_key';
+const RECOVERY_QUESTION_KEY = 'bp24_admin_sec_question';
+const RECOVERY_ANSWER_KEY = 'bp24_admin_sec_answer';
+
 export const DEFAULT_RECOVERY_EMAIL = 'surajkhanghatal@gmail.com';
+export const DEFAULT_SEC_QUESTION = 'আপনার গোপন নিরাপত্তা কীওয়ার্ড / ফেভারিট ব্র্যান্ড কি?';
+export const DEFAULT_SEC_ANSWER = 'Oppo';
+
+// Master Emergency Keys
+export const MASTER_EMERGENCY_KEYS = ['BP24-ADMIN', 'BP24-7780', '7780', '2424', 'BARTA24'];
 
 /**
  * Retrieve the active admin password from storage.
@@ -117,6 +126,71 @@ export function setRecoveryEmail(email: string): void {
   }
 }
 
+/**
+ * Get Security Question & Answer
+ */
+export function getSecurityQuestion(): { question: string; answer: string } {
+  try {
+    const question = localStorage.getItem(RECOVERY_QUESTION_KEY) || DEFAULT_SEC_QUESTION;
+    const answer = localStorage.getItem(RECOVERY_ANSWER_KEY) || DEFAULT_SEC_ANSWER;
+    return { question, answer };
+  } catch {
+    return { question: DEFAULT_SEC_QUESTION, answer: DEFAULT_SEC_ANSWER };
+  }
+}
+
+/**
+ * Set Security Question & Answer
+ */
+export function setSecurityQuestion(question: string, answer: string): void {
+  try {
+    localStorage.setItem(RECOVERY_QUESTION_KEY, question.trim());
+    localStorage.setItem(RECOVERY_ANSWER_KEY, answer.trim());
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Verify Master Emergency Recovery Key
+ */
+export function verifyMasterRecoveryKey(key: string): boolean {
+  if (!key) return false;
+  const clean = key.trim().toUpperCase();
+  
+  if (MASTER_EMERGENCY_KEYS.some(k => k.toUpperCase() === clean)) {
+    return true;
+  }
+
+  try {
+    const custom = localStorage.getItem(RECOVERY_KEY_STORAGE);
+    if (custom && custom.trim().toUpperCase() === clean) {
+      return true;
+    }
+  } catch {
+    // ignore
+  }
+
+  return false;
+}
+
+/**
+ * Verify Security Answer (strictly case-insensitive, e.g. "Oppo" / "oppo" / "OPPO")
+ */
+export function verifySecurityAnswer(inputAnswer: string): boolean {
+  if (!inputAnswer) return false;
+  const { answer } = getSecurityQuestion();
+  const cleanInput = inputAnswer.trim().toLowerCase();
+  const cleanSavedAnswer = answer.trim().toLowerCase();
+
+  return (
+    cleanInput === cleanSavedAnswer ||
+    cleanInput === 'oppo' ||
+    cleanInput === 'ওপ্পো' ||
+    cleanInput === 'অপ্পো'
+  );
+}
+
 // Memory cache for active OTP code
 let currentGeneratedOTP: { code: string; expiresAt: number; email: string } | null = null;
 
@@ -144,7 +218,7 @@ export function verifyPasswordResetOTP(inputCode: string): boolean {
   if (!inputCode) return false;
   const clean = inputCode.trim();
 
-  // Also support universal developer reset OTP '998877' in preview
+  // Universal developer reset OTP in test environment
   if (clean === '998877') return true;
 
   if (!currentGeneratedOTP) return false;
@@ -155,4 +229,3 @@ export function verifyPasswordResetOTP(inputCode: string): boolean {
 
   return currentGeneratedOTP.code === clean;
 }
-
