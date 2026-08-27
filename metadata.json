@@ -1,0 +1,6 @@
+{
+  "name": "Barta Prohor 24",
+  "description": "BARTA PROHOR 24 - Bengali digital news portal featuring breaking updates, entertainment reports, and live crisis coverage.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

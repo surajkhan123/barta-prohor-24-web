@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .editorial-double-border-b {
+    border-bottom: 3px double #1a1a1a;
+  }
+  .editorial-double-border-t {
+    border-top: 3px double #1a1a1a;
+  }
+  .editorial-double-border-y {
+    border-top: 3px double #1a1a1a;
+    border-bottom: 3px double #1a1a1a;
+  }
+  .editorial-paper {
+    background-color: #f8f7f2;
+  }
+  .editorial-card {
+    background-color: #ffffff;
+    border-color: #e2ddd3;
+  }
+}
+
+/* Print Styles for News Editorial */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  header, footer, aside, #breaking-ticker-bar, #audio-news-player, #reactions-and-poll-section, #comments-section, button {
+    display: none !important;
+  }
+  #news-article-content {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
