@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { 
   QrCode, 
   Download, 
@@ -23,17 +23,16 @@ interface QRCodeModalProps {
 export const QRCodeModal: React.FC<QRCodeModalProps> = ({
   isOpen,
   onClose,
-  newsTitle,
 }) => {
-  const [currentUrl, setCurrentUrl] = useState('https://barta-prohor-24-web.vercel.app/');
+  const [currentUrl] = useState('https://barta-prohor-24-web.vercel.app/');
   const [copied, setCopied] = useState(false);
   const [cardStyle, setCardStyle] = useState<'news-card' | 'classic'>('news-card');
   const [isDownloading, setIsDownloading] = useState(false);
 
   if (!isOpen) return null;
 
-  // High-res QR code generated for the verified portal web link
-  const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(
+  // High-res QR code image URL
+  const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(
     currentUrl
   )}&color=111827&bgcolor=ffffff&margin=1`;
 
@@ -52,242 +51,233 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
     window.print();
   };
 
-  // Helper to load image for canvas
+  // Helper to load image for canvas safely
   const loadImage = (src: string): Promise<HTMLImageElement> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => resolve(img);
-      img.onerror = (e) => reject(e);
+      img.onerror = () => {
+        // Retry without crossOrigin if CORS issues
+        const retryImg = new Image();
+        retryImg.onload = () => resolve(retryImg);
+        retryImg.onerror = (e) => reject(e);
+        retryImg.src = src;
+      };
       img.src = src;
     });
   };
 
-  // Helper to wrap text on canvas
-  const drawWrappedText = (
-    ctx: CanvasRenderingContext2D,
-    text: string,
-    x: number,
-    y: number,
-    maxWidth: number,
-    lineHeight: number
-  ): number => {
-    const words = text.split(' ');
-    let line = '';
-    let currentY = y;
-
-    for (let n = 0; n < words.length; n++) {
-      const testLine = line + words[n] + ' ';
-      const metrics = ctx.measureText(testLine);
-      const testWidth = metrics.width;
-      if (testWidth > maxWidth && n > 0) {
-        ctx.fillText(line, x, currentY);
-        line = words[n] + ' ';
-        currentY += lineHeight;
-      } else {
-        line = testLine;
-      }
-    }
-    ctx.fillText(line, x, currentY);
-    return currentY + lineHeight;
-  };
-
-  // Dedicated High-Definition Canvas Image Generator (Pixel-Perfect, Zero Overlap, Perfect Fit)
-  const generatePressCardImage = async () => {
-    // Canvas dimensions (HD 800 x 1020)
+  // High-Definition Canvas Generator (Exact pixel coordinates, zero overlapping, perfect padding)
+  const generatePressCardImage = async (): Promise<string | null> => {
     const width = 800;
-    const height = 1020;
+    const height = 960;
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
-    // Background Canvas
+    // 1. Background
     ctx.fillStyle = '#fdfbf7';
     ctx.fillRect(0, 0, width, height);
 
-    // Outer double border
-    ctx.strokeStyle = '#1a1a1a';
+    // 2. Outer Border & Inner Hairline
+    ctx.strokeStyle = '#111827';
     ctx.lineWidth = 4;
     ctx.strokeRect(20, 20, width - 40, height - 40);
 
-    ctx.strokeStyle = '#ded8cb';
+    ctx.strokeStyle = '#d6cebf';
     ctx.lineWidth = 1.5;
     ctx.strokeRect(28, 28, width - 56, height - 56);
 
-    // Top Bar line
+    // 3. Top Dateline
     ctx.fillStyle = '#b91c1c';
-    ctx.font = 'bold 15px "Noto Serif Bengali", serif, system-ui';
-    ctx.fillText('BARTA PROHOR 24 • ডিজিটাল সংস্করণ', 45, 60);
+    ctx.font = 'bold 14px "Noto Serif Bengali", serif, sans-serif';
+    ctx.fillText('BARTA PROHOR 24 • ডিজিটাল সংস্করণ', 44, 58);
 
-    ctx.fillStyle = '#525252';
-    ctx.font = '14px monospace';
+    ctx.fillStyle = '#4b5563';
+    ctx.font = 'bold 13px monospace';
     ctx.textAlign = 'right';
-    ctx.fillText('ONLINE 24x7', width - 45, 60);
+    ctx.fillText('ONLINE 24x7', width - 44, 58);
     ctx.textAlign = 'left';
 
     // Divider Line
-    ctx.strokeStyle = '#1a1a1a';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#111827';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(40, 75);
-    ctx.lineTo(width - 40, 75);
+    ctx.moveTo(40, 72);
+    ctx.lineTo(width - 40, 72);
     ctx.stroke();
 
-    // --- MASTHEAD LOGO (Red banner with bold 'বার্তা প্রহর' & Golden Italic '24') ---
-    const logoY = 105;
-    const logoWidth = 460;
-    const logoHeight = 70;
-    const logoX = (width - logoWidth) / 2;
+    // 4. Masthead Logo Box
+    const logoW = 460;
+    const logoH = 68;
+    const logoX = (width - logoW) / 2;
+    const logoY = 96;
 
-    // Red Banner
+    // Red banner
     ctx.fillStyle = '#b91c1c';
     ctx.beginPath();
-    ctx.roundRect ? ctx.roundRect(logoX, logoY, logoWidth, logoHeight, 6) : ctx.rect(logoX, logoY, logoWidth, logoHeight);
+    if (ctx.roundRect) {
+      ctx.roundRect(logoX, logoY, logoW, logoH, 6);
+    } else {
+      ctx.rect(logoX, logoY, logoW, logoH);
+    }
     ctx.fill();
     ctx.strokeStyle = '#991b1b';
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Bengali Text "বার্তা প্রহর"
+    // Text "বার্তা প্রহর"
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 36px "Noto Serif Bengali", serif, sans-serif';
-    ctx.fillText('বার্তা প্রহর', logoX + 25, logoY + 48);
+    ctx.fillText('বার্তা প্রহর', logoX + 25, logoY + 46);
 
-    // Zee 24 Ghanta Style '24' Box
-    const badgeW = 92;
-    const badgeH = 50;
-    const badgeX = logoX + logoWidth - badgeW - 15;
+    // Zee 24 Ghanta style "24" badge
+    const badgeW = 90;
+    const badgeH = 48;
+    const badgeX = logoX + logoW - badgeW - 12;
     const badgeY = logoY + 10;
 
-    ctx.save();
-    // Skew transform for Zee 24 style
     ctx.fillStyle = '#111827';
-    ctx.strokeStyle = '#374151';
-    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.roundRect ? ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4) : ctx.rect(badgeX, badgeY, badgeW, badgeH);
+    if (ctx.roundRect) {
+      ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4);
+    } else {
+      ctx.rect(badgeX, badgeY, badgeW, badgeH);
+    }
     ctx.fill();
-    ctx.stroke();
 
-    // Golden Yellow single color 24 in Italic
+    // Single Solid Golden Yellow "24"
     ctx.fillStyle = '#fbbf24';
-    ctx.font = 'italic 900 36px Arial, Helvetica, sans-serif';
+    ctx.font = 'italic 900 34px Arial, Helvetica, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('24', badgeX + badgeW / 2, badgeY + 38);
-    ctx.restore();
-
-    // Tagline underneath
-    ctx.fillStyle = '#b91c1c';
-    ctx.font = 'bold 16px "Noto Serif Bengali", serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('সত্যের সন্ধানে নির্ভীক প্রতিদিন • ২৪x৭ ডিজিটাল বাংলা নিউজ', width / 2, 210);
-
-    // Red accent separator
-    ctx.fillStyle = '#b91c1c';
-    ctx.fillRect(width / 2 - 80, 225, 160, 3);
+    ctx.fillText('24', badgeX + badgeW / 2, badgeY + 36);
     ctx.textAlign = 'left';
 
-    // --- CENTER QR CODE & INFO CARD ---
-    const cardBoxY = 250;
-    const cardBoxW = width - 80;
-    const cardBoxH = 430;
-    const cardBoxX = 40;
+    // 5. Tagline underneath
+    ctx.fillStyle = '#b91c1c';
+    ctx.font = 'bold 15px "Noto Serif Bengali", serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('সত্যের সন্ধানে নির্ভীক প্রতিদিন • ২৪x৭ ডিজিটাল বাংলা নিউজ', width / 2, 192);
 
-    // Card background
+    ctx.fillStyle = '#b91c1c';
+    ctx.fillRect(width / 2 - 70, 206, 140, 2.5);
+    ctx.textAlign = 'left';
+
+    // 6. Center Card Box (QR on left, clean structured text on right)
+    const cardY = 226;
+    const cardW = width - 80;
+    const cardH = 390;
+    const cardX = 40;
+
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = '#ded8cb';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.roundRect ? ctx.roundRect(cardBoxX, cardBoxY, cardBoxW, cardBoxH, 8) : ctx.rect(cardBoxX, cardBoxY, cardBoxW, cardBoxH);
+    if (ctx.roundRect) {
+      ctx.roundRect(cardX, cardY, cardW, cardH, 8);
+    } else {
+      ctx.rect(cardX, cardY, cardW, cardH);
+    }
     ctx.fill();
     ctx.stroke();
 
-    // QR Image rendering
+    // Load & Render QR Image
     try {
       const qrImg = await loadImage(qrCodeImageUrl);
-      const qrSize = 320;
-      const qrX = cardBoxX + 25;
-      const qrY = cardBoxY + 30;
+      const qrSize = 280;
+      const qrX = cardX + 25;
+      const qrY = cardY + 28;
 
-      // QR container box
       ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = '#1a1a1a';
+      ctx.strokeStyle = '#111827';
       ctx.lineWidth = 1.5;
-      ctx.strokeRect(qrX - 8, qrY - 8, qrSize + 16, qrSize + 16);
+      ctx.strokeRect(qrX - 6, qrY - 6, qrSize + 12, qrSize + 12);
 
       ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
 
-      // "SCAN TO READ" caption
-      ctx.fillStyle = '#525252';
-      ctx.font = 'bold 13px monospace';
+      // "SCAN TO READ" text
+      ctx.fillStyle = '#4b5563';
+      ctx.font = 'bold 12px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('SCAN TO READ 24x7', qrX + qrSize / 2, qrY + qrSize + 24);
+      ctx.fillText('SCAN TO READ 24x7', qrX + qrSize / 2, qrY + qrSize + 22);
       ctx.textAlign = 'left';
 
-      // Right Text Column
+      // Right Text Info
       const textX = qrX + qrSize + 35;
-      let textY = cardBoxY + 65;
-      const textMaxW = cardBoxW - qrSize - 80;
-
-      // Badge "লাইভ নিউজডেস্ক"
+      
+      // Live badge
       ctx.fillStyle = '#b91c1c';
-      ctx.fillRect(textX, textY - 20, 140, 28);
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(textX, cardY + 36, 145, 28, 4);
+      } else {
+        ctx.rect(textX, cardY + 36, 145, 28);
+      }
+      ctx.fill();
+
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 14px "Noto Serif Bengali", serif';
-      ctx.fillText('● লাইভ নিউজডেস্ক', textX + 10, textY - 1);
+      ctx.font = 'bold 13px "Noto Serif Bengali", serif';
+      ctx.fillText('● লাইভ নিউজডেস্ক', textX + 12, cardY + 55);
 
-      textY += 35;
-
-      // Heading
+      // Heading lines
       ctx.fillStyle = '#111827';
-      ctx.font = 'bold 22px "Noto Serif Bengali", serif';
-      textY = drawWrappedText(
-        ctx,
-        'মোবাইল ক্যামেরা বা কিউআর স্ক্যানার দিয়ে স্ক্যান করুন',
-        textX,
-        textY,
-        textMaxW,
-        32
-      );
+      ctx.font = 'bold 20px "Noto Serif Bengali", serif';
+      ctx.fillText('মোবাইল ক্যামেরা দিয়ে স্ক্যান করে', textX, cardY + 104);
+      ctx.fillText('সরাসরি পড়ুন ডিজিটাল পত্রিকা', textX, cardY + 134);
 
-      textY += 10;
-
-      // Description text
+      // Body lines
       ctx.fillStyle = '#4b5563';
-      ctx.font = '16px "Noto Serif Bengali", serif';
-      drawWrappedText(
-        ctx,
-        'তাজা খবর, বিনোদন, ভিডিও ও অডিও বুলেটিন একসাথে সরাসরি পড়ুন বার্তা প্রহর ২৪ ডিজিটাল পোর্টালে।',
-        textX,
-        textY,
-        textMaxW,
-        26
-      );
+      ctx.font = '15px "Noto Serif Bengali", serif';
+      ctx.fillText('তাজা খবর, বিনোদন, ভিডিও ও অডিও', textX, cardY + 180);
+      ctx.fillText('বুলেটিন একসাথে সরাসরি পড়ুন বার্তা প্রহর', textX, cardY + 208);
+      ctx.fillText('২৪ ডিজিটাল পোর্টালে।', textX, cardY + 236);
+
+      // Feature highlight box
+      ctx.fillStyle = '#fef3c7';
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(textX, cardY + 265, cardW - qrSize - 80, 44, 4);
+      } else {
+        ctx.rect(textX, cardY + 265, cardW - qrSize - 80, 44);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#92400e';
+      ctx.font = 'bold 13px "Noto Serif Bengali", serif';
+      ctx.fillText('⚡ ব্রেকিং নিউজ ও ইনস্ট্যান্ট লাইভ কভারেজ', textX + 12, cardY + 293);
     } catch (e) {
-      console.error('Failed to load QR in canvas:', e);
+      console.error('Failed to render QR on canvas:', e);
     }
 
-    // --- OFFICIAL WEB PORTAL LINK BOX ---
-    const linkBoxY = 705;
-    const linkBoxH = 120;
+    // 7. Official Web Portal Link Bar
+    const linkY = 636;
+    const linkH = 100;
     ctx.fillStyle = '#111827';
     ctx.beginPath();
-    ctx.roundRect ? ctx.roundRect(40, linkBoxY, width - 80, linkBoxH, 6) : ctx.rect(40, linkBoxY, width - 80, linkBoxH);
+    if (ctx.roundRect) {
+      ctx.roundRect(40, linkY, width - 80, linkH, 6);
+    } else {
+      ctx.rect(40, linkY, width - 80, linkH);
+    }
     ctx.fill();
 
     ctx.fillStyle = '#fbbf24';
-    ctx.font = 'bold 15px "Noto Serif Bengali", serif';
+    ctx.font = 'bold 14px "Noto Serif Bengali", serif';
     ctx.textAlign = 'center';
-    ctx.fillText('অফিসিয়াল ওয়েব পোর্টাল লিঙ্ক', width / 2, linkBoxY + 38);
+    ctx.fillText('অফিসিয়াল ওয়েব পোর্টাল লিঙ্ক', width / 2, linkY + 34);
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 22px monospace';
-    ctx.fillText('https://barta-prohor-24-web.vercel.app/', width / 2, linkBoxY + 80);
+    ctx.font = 'bold 21px monospace';
+    ctx.fillText('https://barta-prohor-24-web.vercel.app/', width / 2, linkY + 72);
 
-    // --- FOOTER SECTION ---
-    const footerY = 875;
+    // 8. Footer Section
+    const footerY = 760;
     ctx.strokeStyle = '#ded8cb';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -295,39 +285,38 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
     ctx.lineTo(width - 40, footerY);
     ctx.stroke();
 
-    ctx.fillStyle = '#737373';
-    ctx.font = '14px "Noto Serif Bengali", serif';
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '13px "Noto Serif Bengali", serif';
     ctx.textAlign = 'left';
-    ctx.fillText('পশ্চিমবঙ্গ ও বিশ্বের তাজা সংবাদ', 45, footerY + 35);
+    ctx.fillText('পশ্চিমবঙ্গ ও বিশ্বের তাজা সংবাদ • সর্বস্বত্ব সংরক্ষিত', 45, footerY + 32);
 
     ctx.fillStyle = '#111827';
-    ctx.font = 'bold 15px monospace';
+    ctx.font = 'bold 14px monospace';
     ctx.textAlign = 'right';
-    ctx.fillText('BARTA PROHOR 24 DIGITAL', width - 45, footerY + 35);
+    ctx.fillText('BARTA PROHOR 24 DIGITAL', width - 45, footerY + 32);
     ctx.textAlign = 'left';
 
     return canvas.toDataURL('image/png', 1.0);
   };
 
   // Classic Large QR Canvas Generator
-  const generateClassicQRImage = async () => {
+  const generateClassicQRImage = async (): Promise<string | null> => {
     const width = 640;
-    const height = 780;
+    const height = 760;
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
-    // Background
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, height);
 
-    ctx.strokeStyle = '#1a1a1a';
+    ctx.strokeStyle = '#111827';
     ctx.lineWidth = 3;
     ctx.strokeRect(20, 20, width - 40, height - 40);
 
-    // Header Masthead
+    // Header Logo
     const logoW = 340;
     const logoH = 56;
     const logoX = (width - logoW) / 2;
@@ -335,21 +324,28 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
 
     ctx.fillStyle = '#b91c1c';
     ctx.beginPath();
-    ctx.roundRect ? ctx.roundRect(logoX, logoY, logoW, logoH, 4) : ctx.rect(logoX, logoY, logoW, logoH);
+    if (ctx.roundRect) {
+      ctx.roundRect(logoX, logoY, logoW, logoH, 4);
+    } else {
+      ctx.rect(logoX, logoY, logoW, logoH);
+    }
     ctx.fill();
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 26px "Noto Serif Bengali", serif';
     ctx.fillText('বার্তা প্রহর', logoX + 20, logoY + 38);
 
-    // Badge 24
     const bW = 65;
     const bH = 40;
     const bX = logoX + logoW - bW - 10;
     const bY = logoY + 8;
     ctx.fillStyle = '#111827';
     ctx.beginPath();
-    ctx.roundRect ? ctx.roundRect(bX, bY, bW, bH, 4) : ctx.rect(bX, bY, bW, bH);
+    if (ctx.roundRect) {
+      ctx.roundRect(bX, bY, bW, bH, 4);
+    } else {
+      ctx.rect(bX, bY, bW, bH);
+    }
     ctx.fill();
 
     ctx.fillStyle = '#fbbf24';
@@ -358,17 +354,17 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
     ctx.fillText('24', bX + bW / 2, bY + 30);
     ctx.textAlign = 'left';
 
-    // QR Code in Box
+    // QR Image
     try {
       const qrImg = await loadImage(qrCodeImageUrl);
-      const qrSize = 380;
+      const qrSize = 360;
       const qrX = (width - qrSize) / 2;
-      const qrY = 135;
+      const qrY = 125;
 
       ctx.fillStyle = '#fdfbf7';
       ctx.strokeStyle = '#ded8cb';
       ctx.lineWidth = 2;
-      ctx.strokeRect(qrX - 12, qrY - 12, qrSize + 24, qrSize + 24);
+      ctx.strokeRect(qrX - 10, qrY - 10, qrSize + 20, qrSize + 20);
 
       ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
     } catch (e) {
@@ -379,25 +375,24 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
     ctx.fillStyle = '#111827';
     ctx.font = 'bold 18px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('barta-prohor-24-web.vercel.app', width / 2, 590);
+    ctx.fillText('barta-prohor-24-web.vercel.app', width / 2, 570);
 
-    ctx.fillStyle = '#525252';
+    ctx.fillStyle = '#4b5563';
     ctx.font = '16px "Noto Serif Bengali", serif';
-    ctx.fillText('যেকোনো মোবাইল ক্যামেরা বা স্ক্যানার দিয়ে স্ক্যান করুন', width / 2, 630);
+    ctx.fillText('যেকোনো মোবাইল ক্যামেরা বা স্ক্যানার দিয়ে স্ক্যান করুন', width / 2, 610);
 
     ctx.fillStyle = '#b91c1c';
     ctx.font = 'bold 14px "Noto Serif Bengali", serif';
-    ctx.fillText('২৪x৭ ডিজিটাল বাংলা সংবাদ', width / 2, 665);
+    ctx.fillText('২৪x৭ ডিজিটাল বাংলা সংবাদ', width / 2, 645);
 
     return canvas.toDataURL('image/png', 1.0);
   };
 
-  // Handle High-Res Download (guaranteed 100% fitted, razor-sharp, no text overlapping)
+  // Trigger Download as PNG image
   const handleDownloadCardImage = async () => {
     try {
       setIsDownloading(true);
       
-      // Ensure all custom fonts are ready
       if (document.fonts) {
         await document.fonts.ready;
       }
@@ -413,10 +408,11 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
       const link = document.createElement('a');
       link.download = cardStyle === 'news-card' ? 'BartaProhor24_PressCard.png' : 'BartaProhor24_QRCode.png';
       link.href = dataUrl;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
     } catch (err) {
       console.error('Failed to generate canvas image:', err);
-      // Fallback
       window.open(qrCodeImageUrl, '_blank');
     } finally {
       setIsDownloading(false);
@@ -481,7 +477,7 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
           </div>
 
           <span className="text-[11px] text-[#737373] hidden sm:inline font-mono font-bold">
-            HD PNG Format
+            HD PNG Format (100% Fitted)
           </span>
         </div>
 
@@ -655,4 +651,3 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
     </div>
   );
 };
-
