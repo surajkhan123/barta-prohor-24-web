@@ -48,8 +48,14 @@ import {
   getStoredAdminPassword, 
   verifyAdminPassword, 
   updateStoredAdminPassword, 
-  getPasswordLastUpdated 
+  getPasswordLastUpdated,
+  getRecoveryEmail,
+  setRecoveryEmail,
+  getSecurityQuestion,
+  setSecurityQuestion,
+  MASTER_EMERGENCY_KEYS
 } from '../data/authStore';
+import { ForgotPasswordView } from './ForgotPasswordView';
 
 interface AdminPanelModalProps {
   isOpen: boolean;
@@ -148,6 +154,15 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     return getPasswordLastUpdated();
   });
 
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [resetNotification, setResetNotification] = useState('');
+
+  // Recovery Config in Settings
+  const [recoveryEmailState, setRecoveryEmailState] = useState<string>(() => getRecoveryEmail());
+  const [secQuestionState, setSecQuestionState] = useState<string>(() => getSecurityQuestion().question);
+  const [secAnswerState, setSecAnswerState] = useState<string>(() => getSecurityQuestion().answer);
+  const [recoverySaveSuccess, setRecoverySaveSuccess] = useState('');
+
   useEffect(() => {
     // Check if session authenticated
     if (sessionStorage.getItem('bp24_admin_logged') === 'true') {
@@ -162,8 +177,21 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       sessionStorage.setItem('bp24_admin_logged', 'true');
       setAuthError('');
     } else {
-      setAuthError('ভুল পাসওয়ার্ড! অনুগ্রহ করে আপনার সঠিক অ্যাডমিন পাসওয়ার্ড লিখুন।');
+      setAuthError('ভুল পাসওয়ার্ড! পাসওয়ার্ড মনে না থাকলে নিচে "পাসওয়ার্ড ভুলে গেছেন?" এ ক্লিক করুন।');
     }
+  };
+
+  const handleSaveRecoverySettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    setRecoverySaveSuccess('');
+    if (recoveryEmailState.trim()) {
+      setRecoveryEmail(recoveryEmailState.trim());
+    }
+    if (secQuestionState.trim() && secAnswerState.trim()) {
+      setSecurityQuestion(secQuestionState.trim(), secAnswerState.trim());
+    }
+    setRecoverySaveSuccess('রিকভারি ইমেইল ও নিরাপত্তা প্রশ্নের তথ্য ডেটাবেজে সংরক্ষিত হয়েছে!');
+    setTimeout(() => setRecoverySaveSuccess(''), 4000);
   };
 
   const handleUpdatePassword = (e: React.FormEvent) => {
@@ -613,62 +641,99 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
         {/* Content Body */}
         {!isAuthenticated ? (
-          /* Login Screen */
-          <div className="p-6 sm:p-12 flex flex-col items-center justify-center text-center space-y-5 flex-1">
-            <div className="w-16 h-16 rounded-full bg-[#fef2f2] border-2 border-[#f87171] text-[#b91c1c] flex items-center justify-center">
-              <Lock className="w-8 h-8" />
-            </div>
-            <div className="max-w-md space-y-1">
-              <h4 className="text-lg font-bold text-[#1a1a1a] font-['Noto_Serif_Bengali']">
-                নিউজ এডিটর পাসওয়ার্ড প্রবেশ করান
-              </h4>
-              <p className="text-xs text-[#525252] font-['Noto_Serif_Bengali']">
-                সুরক্ষার জন্য শুধুমাত্র অনুমোদিত সম্পাদকদের জন্য এই ড্যাশবোর্ডটি সংরক্ষিত।
-              </p>
-            </div>
-
-            <form onSubmit={handleLogin} className="w-full max-w-xs space-y-3">
-              <div className="relative">
-                <input
-                  type={showLoginPassword ? 'text' : 'password'}
-                  maxLength={30}
-                  value={pinInput}
-                  onChange={(e) => setPinInput(e.target.value)}
-                  placeholder="পাসওয়ার্ড লিখুন"
-                  className="w-full text-center tracking-widest text-base font-mono bg-white border-2 border-[#ded8cb] focus:border-[#b91c1c] p-2.5 pr-10 rounded-xs focus:outline-hidden text-[#1a1a1a]"
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowLoginPassword(!showLoginPassword)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#737373] hover:text-[#1a1a1a] p-1 cursor-pointer"
-                  title={showLoginPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
-                >
-                  {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+          isForgotPassword ? (
+            /* Forgot Password / Recovery Flow */
+            <ForgotPasswordView
+              onBackToLogin={() => setIsForgotPassword(false)}
+              onResetSuccess={(newPass) => {
+                setAdminPin(newPass);
+                setIsAuthenticated(true);
+                sessionStorage.setItem('bp24_admin_logged', 'true');
+                setIsForgotPassword(false);
+                setResetNotification('আপনার নতুন পাসওয়ার্ড সফলভাবে ডেটাবেজে সংরক্ষিত হয়েছে এবং আপনি স্বয়ংক্রিয়ভাবে লগইন হয়েছেন!');
+                setTimeout(() => setResetNotification(''), 6000);
+              }}
+            />
+          ) : (
+            /* Login Screen */
+            <div className="p-6 sm:p-12 flex flex-col items-center justify-center text-center space-y-5 flex-1">
+              <div className="w-16 h-16 rounded-full bg-[#fef2f2] border-2 border-[#f87171] text-[#b91c1c] flex items-center justify-center shadow-xs">
+                <Lock className="w-8 h-8" />
+              </div>
+              <div className="max-w-md space-y-1">
+                <h4 className="text-lg font-bold text-[#1a1a1a] font-['Noto_Serif_Bengali']">
+                  নিউজ এডিটর পাসওয়ার্ড প্রবেশ করান
+                </h4>
+                <p className="text-xs text-[#525252] font-['Noto_Serif_Bengali']">
+                  সুরক্ষার জন্য শুধুমাত্র অনুমোদিত সম্পাদকদের জন্য এই ড্যাশবোর্ডটি সংরক্ষিত।
+                </p>
               </div>
 
-              {authError && (
-                <div className="p-2 bg-[#fef2f2] border border-[#fca5a5] rounded-xs text-[#b91c1c] text-xs font-bold font-['Noto_Serif_Bengali'] flex items-center gap-1.5 justify-center">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>{authError}</span>
+              {resetNotification && (
+                <div className="p-3 max-w-xs w-full bg-[#ecfdf5] border border-[#a7f3d0] rounded-xs text-[#065f46] text-xs font-bold font-['Noto_Serif_Bengali'] flex items-center gap-1.5 justify-center text-left">
+                  <CheckCircle2 className="w-4 h-4 text-[#059669] shrink-0" />
+                  <span>{resetNotification}</span>
                 </div>
               )}
 
-              <button
-                type="submit"
-                className="w-full bg-[#b91c1c] hover:bg-[#991b1b] text-white py-2.5 px-4 rounded-xs font-bold text-xs cursor-pointer border border-[#7f1d1d] font-['Noto_Serif_Bengali'] flex items-center justify-center gap-1.5 shadow-xs"
-              >
-                <Lock className="w-3.5 h-3.5" />
-                <span>নিউজডেস্কে প্রবেশ করুন</span>
-              </button>
+              <form onSubmit={handleLogin} className="w-full max-w-xs space-y-3">
+                <div className="relative">
+                  <input
+                    type={showLoginPassword ? 'text' : 'password'}
+                    maxLength={30}
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value)}
+                    placeholder="পাসওয়ার্ড লিখুন"
+                    className="w-full text-center tracking-widest text-base font-mono bg-white border-2 border-[#ded8cb] focus:border-[#b91c1c] p-2.5 pr-10 rounded-xs focus:outline-hidden text-[#1a1a1a]"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#737373] hover:text-[#1a1a1a] p-1 cursor-pointer"
+                    title={showLoginPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
+                  >
+                    {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
 
-              <div className="text-[11px] text-[#737373] flex items-center justify-center gap-1 pt-1 font-['Noto_Serif_Bengali']">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#059669]" />
-                <span>ডেটাবেজ সংরক্ষিত অ্যাডমিন সিস্টেম</span>
-              </div>
-            </form>
-          </div>
+                {authError && (
+                  <div className="p-2.5 bg-[#fef2f2] border border-[#fca5a5] rounded-xs text-[#b91c1c] text-xs font-bold font-['Noto_Serif_Bengali'] flex items-start gap-1.5 text-left">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{authError}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  className="w-full bg-[#b91c1c] hover:bg-[#991b1b] text-white py-2.5 px-4 rounded-xs font-bold text-xs cursor-pointer border border-[#7f1d1d] font-['Noto_Serif_Bengali'] flex items-center justify-center gap-1.5 shadow-xs"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>নিউজডেস্কে প্রবেশ করুন</span>
+                </button>
+
+                {/* Forgot Password Link Button */}
+                <div className="pt-2 border-t border-[#ded8cb] flex flex-col items-center gap-1.5 font-['Noto_Serif_Bengali']">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsForgotPassword(true);
+                      setAuthError('');
+                    }}
+                    className="text-xs text-[#b91c1c] hover:text-[#991b1b] font-bold hover:underline cursor-pointer flex items-center gap-1.5 py-1 px-2 rounded-xs hover:bg-[#fef2f2]"
+                  >
+                    <Key className="w-3.5 h-3.5" />
+                    <span>পাসওয়ার্ড ভুলে গেছেন? (Forgot Password / Reset)</span>
+                  </button>
+
+                  <div className="text-[11px] text-[#737373] flex items-center justify-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#059669]" />
+                    <span>ডেটাবেজ সংরক্ষিত অ্যাডমিন সিস্টেম</span>
+                  </div>
+                </div>
+              </form>
+            </div>
+          )
         ) : (
           /* Authenticated Admin Dashboard */
           <div className="flex flex-col flex-1 overflow-hidden">
@@ -1705,6 +1770,105 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       পাসওয়ার্ড পরিবর্তন করার সাথে সাথেই তা স্বয়ংক্রিয়ভাবে ব্রাউজার ও ডেটাবেজে সংরক্ষিত হয়ে যায়। পরিবর্তন করার পর আপনার নতুন পাসওয়ার্ডটি কোনো নিরাপদ স্থানে লিখে রাখুন।
                     </p>
                   </div>
+                </div>
+
+                {/* Card 2: Recovery Email, Security Question & Master Key */}
+                <div className="bg-white p-5 sm:p-6 rounded-xs border border-[#ded8cb] space-y-4 max-w-lg mx-auto shadow-xs">
+                  <div className="flex items-center gap-3 border-b border-[#ded8cb] pb-3">
+                    <div className="w-10 h-10 rounded-full bg-[#eff6ff] text-[#2563eb] flex items-center justify-center border border-[#bfdbfe]">
+                      <ShieldAlert className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm sm:text-base text-[#1a1a1a]">
+                        জরুরি পাসওয়ার্ড রিকভারি সেটিংস
+                      </h4>
+                      <p className="text-xs text-[#737373]">
+                        পাসওয়ার্ড ভুলে গেলে পুনরুদ্ধারের জন্য এই তথ্যগুলো ব্যবহৃত হবে
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Master Emergency Key Box */}
+                  <div className="bg-[#fffbeb] p-3.5 rounded-xs border border-[#fde68a] text-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-[#92400e] flex items-center gap-1.5">
+                        <Key className="w-3.5 h-3.5" />
+                        মাস্টার এমার্জেন্সি রিকভারি কি:
+                      </span>
+                      <span className="bg-[#fef3c7] text-[#92400e] text-[10px] font-bold px-2 py-0.5 rounded-xs border border-[#fcd34d]">
+                        সর্বদা কার্যকর
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <code className="bg-white px-2.5 py-1 rounded-xs border border-[#fde68a] font-mono text-[#b91c1c] font-bold text-sm tracking-wider">
+                        BP24-ADMIN
+                      </code>
+                      <span className="text-[11px] text-[#78350f]">বা 7780 / 2424</span>
+                    </div>
+                    <p className="text-[11px] text-[#92400e] leading-relaxed">
+                      পাসওয়ার্ড ভুলে গেলে লগইন স্ক্রিনের "পাসওয়ার্ড ভুলে গেছেন?" বাটনে ক্লিক করে এই মাস্টার কি দিয়ে সাথে সাথে পাসওয়ার্ড রিসেট করতে পারবেন।
+                    </p>
+                  </div>
+
+                  {recoverySaveSuccess && (
+                    <div className="p-3 bg-[#ecfdf5] border border-[#a7f3d0] rounded-xs text-[#065f46] text-xs font-bold flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#059669] shrink-0 mt-0.5" />
+                      <span>{recoverySaveSuccess}</span>
+                    </div>
+                  )}
+
+                  {/* Recovery Form */}
+                  <form onSubmit={handleSaveRecoverySettings} className="space-y-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-[#1a1a1a] mb-1">
+                        রিকভারি ওটিপি ইমেইল অ্যাড্রেস:
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={recoveryEmailState}
+                        onChange={(e) => setRecoveryEmailState(e.target.value)}
+                        placeholder="admin@example.com"
+                        className="w-full bg-[#fbf9f4] border border-[#ded8cb] rounded-xs px-3 py-2 text-xs font-mono text-[#1a1a1a] focus:outline-hidden focus:border-[#2563eb]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#1a1a1a] mb-1">
+                        নিরাপত্তা প্রশ্ন:
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={secQuestionState}
+                        onChange={(e) => setSecQuestionState(e.target.value)}
+                        placeholder="যেমন: আপনার নিউজ পোর্টালের নাম কি?"
+                        className="w-full bg-[#fbf9f4] border border-[#ded8cb] rounded-xs px-3 py-2 text-xs text-[#1a1a1a] focus:outline-hidden focus:border-[#2563eb]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#1a1a1a] mb-1">
+                        নিরাপত্তা প্রশ্নের গোপন উত্তর:
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={secAnswerState}
+                        onChange={(e) => setSecAnswerState(e.target.value)}
+                        placeholder="যেমন: বার্তা প্রহর"
+                        className="w-full bg-[#fbf9f4] border border-[#ded8cb] rounded-xs px-3 py-2 text-xs text-[#1a1a1a] focus:outline-hidden focus:border-[#2563eb]"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold py-2.5 px-4 rounded-xs text-xs cursor-pointer border border-[#1e40af] flex items-center justify-center gap-2 shadow-xs transition-colors"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>রিকভারি সেটিংস সংরক্ষণ করুন</span>
+                    </button>
+                  </form>
                 </div>
               </div>
             )}

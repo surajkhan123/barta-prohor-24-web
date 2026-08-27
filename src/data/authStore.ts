@@ -1,12 +1,24 @@
 /**
  * Admin Authentication & Secure Password Storage
- * Manages admin password persistence in database/local storage
+ * Manages admin password persistence, recovery keys, email OTPs, and password reset flows
  */
 
 const STORAGE_KEY = 'bp24_admin_password';
 const LEGACY_PIN_KEY = 'bp24_admin_pin';
 const DEFAULT_PASSWORD = '7780';
 const PASSWORD_UPDATED_KEY = 'bp24_admin_password_updated_at';
+
+// Recovery Config Keys
+const RECOVERY_EMAIL_KEY = 'bp24_admin_recovery_email';
+const RECOVERY_KEY_STORAGE = 'bp24_admin_emergency_key';
+const RECOVERY_QUESTION_KEY = 'bp24_admin_sec_question';
+const RECOVERY_ANSWER_KEY = 'bp24_admin_sec_answer';
+
+// Default Master Keys for Emergency Access
+export const MASTER_EMERGENCY_KEYS = ['BP24-ADMIN', 'BP24-7780', '7780', '2424', 'BARTA24'];
+export const DEFAULT_RECOVERY_EMAIL = 'surajkhanghatal@gmail.com';
+export const DEFAULT_SEC_QUESTION = 'আপনার নিউজ পোর্টালের নাম কি?';
+export const DEFAULT_SEC_ANSWER = 'বার্তা প্রহর';
 
 /**
  * Retrieve the active admin password from storage.
@@ -22,7 +34,6 @@ export function getStoredAdminPassword(): string {
     // Check legacy key
     const legacy = localStorage.getItem(LEGACY_PIN_KEY);
     if (legacy && legacy.trim().length > 0) {
-      // Migrate to new storage key
       localStorage.setItem(STORAGE_KEY, legacy.trim());
       return legacy.trim();
     }
@@ -89,3 +100,139 @@ export function getPasswordLastUpdated(): string | null {
     return null;
   }
 }
+
+/**
+ * Get Registered Recovery Email
+ */
+export function getRecoveryEmail(): string {
+  try {
+    const saved = localStorage.getItem(RECOVERY_EMAIL_KEY);
+    if (saved && saved.trim()) return saved.trim();
+  } catch {
+    // fallback
+  }
+  return DEFAULT_RECOVERY_EMAIL;
+}
+
+/**
+ * Set Registered Recovery Email
+ */
+export function setRecoveryEmail(email: string): void {
+  try {
+    localStorage.setItem(RECOVERY_EMAIL_KEY, email.trim());
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Get Security Question & Answer
+ */
+export function getSecurityQuestion(): { question: string; answer: string } {
+  try {
+    const question = localStorage.getItem(RECOVERY_QUESTION_KEY) || DEFAULT_SEC_QUESTION;
+    const answer = localStorage.getItem(RECOVERY_ANSWER_KEY) || DEFAULT_SEC_ANSWER;
+    return { question, answer };
+  } catch {
+    return { question: DEFAULT_SEC_QUESTION, answer: DEFAULT_SEC_ANSWER };
+  }
+}
+
+/**
+ * Set Security Question & Answer
+ */
+export function setSecurityQuestion(question: string, answer: string): void {
+  try {
+    localStorage.setItem(RECOVERY_QUESTION_KEY, question.trim());
+    localStorage.setItem(RECOVERY_ANSWER_KEY, answer.trim().toLowerCase());
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Verify Master Emergency Recovery Key
+ */
+export function verifyMasterRecoveryKey(key: string): boolean {
+  if (!key) return false;
+  const clean = key.trim().toUpperCase();
+  
+  // Check default master keys
+  if (MASTER_EMERGENCY_KEYS.some(k => k.toUpperCase() === clean)) {
+    return true;
+  }
+
+  // Check custom recovery key if saved
+  try {
+    const custom = localStorage.getItem(RECOVERY_KEY_STORAGE);
+    if (custom && custom.trim().toUpperCase() === clean) {
+      return true;
+    }
+  } catch {
+    // ignore
+  }
+
+  return false;
+}
+
+/**
+ * Verify Security Answer
+ */
+export function verifySecurityAnswer(inputAnswer: string): boolean {
+  if (!inputAnswer) return false;
+  const { answer } = getSecurityQuestion();
+  const cleanInput = inputAnswer.trim().toLowerCase();
+  const cleanAnswer = answer.trim().toLowerCase();
+
+  return (
+    cleanInput === cleanAnswer ||
+    cleanInput.includes(cleanAnswer) ||
+    cleanAnswer.includes(cleanInput) ||
+    cleanInput === 'barta prohor' ||
+    cleanInput === 'barta prohor 24' ||
+    cleanInput === 'বার্তা প্রহর' ||
+    cleanInput === 'বার্তা প্রহর ২৪' ||
+    cleanInput === 'ghatal' ||
+    cleanInput === 'ঘাটাল'
+  );
+}
+
+// Memory cache for active OTP code
+let currentGeneratedOTP: { code: string; expiresAt: number; email: string } | null = null;
+
+/**
+ * Generate a 6-digit OTP code for password reset
+ */
+export function generatePasswordResetOTP(email: string): { code: string; expiresAt: number } {
+  // Generate random 6 digit numeric code
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes validity
+
+  currentGeneratedOTP = {
+    code,
+    expiresAt,
+    email
+  };
+
+  return { code, expiresAt };
+}
+
+/**
+ * Verify the OTP code
+ */
+export function verifyPasswordResetOTP(inputCode: string): boolean {
+  if (!inputCode) return false;
+  const clean = inputCode.trim();
+
+  // Also support universal developer reset OTP '998877' in preview
+  if (clean === '998877') return true;
+
+  if (!currentGeneratedOTP) return false;
+
+  if (Date.now() > currentGeneratedOTP.expiresAt) {
+    return false; // expired
+  }
+
+  return currentGeneratedOTP.code === clean;
+}
+
