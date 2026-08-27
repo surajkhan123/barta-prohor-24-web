@@ -8,19 +8,25 @@ import {
   Headphones, 
   FastForward, 
   Sparkles,
-  Check
+  Check,
+  Mic,
+  Music
 } from 'lucide-react';
 
 interface AudioNewsReaderProps {
   articleText: string;
   articleTitle: string;
   durationSeconds: number;
+  audioUrl?: string;
+  audioName?: string;
 }
 
 export const AudioNewsReader: React.FC<AudioNewsReaderProps> = ({
   articleText,
   articleTitle,
   durationSeconds,
+  audioUrl,
+  audioName,
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -28,7 +34,9 @@ export const AudioNewsReader: React.FC<AudioNewsReaderProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [hasSpeechSupport, setHasSpeechSupport] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [totalAudioDuration, setTotalAudioDuration] = useState<number>(durationSeconds || 60);
 
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const speechUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const intervalRef = useRef<any>(null);
 
@@ -39,12 +47,23 @@ export const AudioNewsReader: React.FC<AudioNewsReaderProps> = ({
     }
   }, []);
 
-  const totalTime = durationSeconds;
+  // Update duration if durationSeconds prop changes
+  useEffect(() => {
+    if (!audioUrl) {
+      setTotalAudioDuration(durationSeconds || 60);
+    }
+  }, [durationSeconds, audioUrl]);
+
+  // Reset states when audioUrl or articleTitle changes
+  useEffect(() => {
+    handleReset();
+  }, [audioUrl, articleTitle]);
 
   // Format seconds to mm:ss in Bengali digits
   const formatBengaliTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
+    const validSecs = Math.max(0, Math.floor(secs || 0));
+    const m = Math.floor(validSecs / 60);
+    const s = Math.floor(validSecs % 60);
     const bDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
     const pad = (n: number) => (n < 10 ? '0' + n : n.toString());
     const mStr = pad(m).split('').map(d => bDigits[parseInt(d, 10)] || d).join('');
@@ -53,72 +72,91 @@ export const AudioNewsReader: React.FC<AudioNewsReaderProps> = ({
   };
 
   const handlePlayToggle = () => {
-    if (isPlaying) {
-      // Pause
-      if (hasSpeechSupport && window.speechSynthesis.speaking) {
-        window.speechSynthesis.pause();
+    if (audioUrl && audioElementRef.current) {
+      // Custom Audio File Playback
+      if (isPlaying) {
+        audioElementRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        audioElementRef.current.playbackRate = playbackSpeed;
+        audioElementRef.current.muted = isMuted;
+        audioElementRef.current.play().then(() => {
+          setIsPlaying(true);
+        }).catch(err => {
+          console.error('Audio play error:', err);
+        });
       }
-      clearInterval(intervalRef.current);
-      setIsPlaying(false);
     } else {
-      // Play
-      setIsPlaying(true);
+      // Speech Synthesis / AI fallback
+      if (isPlaying) {
+        if (hasSpeechSupport && window.speechSynthesis.speaking) {
+          window.speechSynthesis.pause();
+        }
+        clearInterval(intervalRef.current);
+        setIsPlaying(false);
+      } else {
+        setIsPlaying(true);
 
-      if (hasSpeechSupport) {
-        if (window.speechSynthesis.paused) {
-          window.speechSynthesis.resume();
-        } else {
-          window.speechSynthesis.cancel();
-          const cleanText = `${articleTitle}। ${articleText}`;
-          const utterance = new SpeechSynthesisUtterance(cleanText);
-          
-          // Try to select a Bengali voice if present
-          const voices = window.speechSynthesis.getVoices();
-          const bnVoice = voices.find(v => v.lang.includes('bn') || v.lang.includes('Bengali') || v.lang.includes('IN'));
-          if (bnVoice) {
-            utterance.voice = bnVoice;
-          }
-          utterance.rate = playbackSpeed;
-          utterance.lang = 'bn-IN';
+        if (hasSpeechSupport) {
+          if (window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+          } else {
+            window.speechSynthesis.cancel();
+            const cleanText = `${articleTitle}। ${articleText}`;
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            
+            const voices = window.speechSynthesis.getVoices();
+            const bnVoice = voices.find(v => v.lang.includes('bn') || v.lang.includes('Bengali') || v.lang.includes('IN'));
+            if (bnVoice) {
+              utterance.voice = bnVoice;
+            }
+            utterance.rate = playbackSpeed;
+            utterance.lang = 'bn-IN';
 
-          utterance.onend = () => {
-            setIsPlaying(false);
-            setProgress(100);
-            setCurrentTime(totalTime);
-            clearInterval(intervalRef.current);
-          };
+            utterance.onend = () => {
+              setIsPlaying(false);
+              setProgress(100);
+              setCurrentTime(totalAudioDuration);
+              clearInterval(intervalRef.current);
+            };
 
-          utterance.onerror = () => {
-            // fallback gracefully with visual playback
-          };
+            utterance.onerror = () => {
+              setIsPlaying(false);
+              clearInterval(intervalRef.current);
+            };
 
-          speechUtteranceRef.current = utterance;
-          try {
-            window.speechSynthesis.speak(utterance);
-          } catch (e) {
-            console.error('Speech synthesis error', e);
+            speechUtteranceRef.current = utterance;
+            try {
+              window.speechSynthesis.speak(utterance);
+            } catch (e) {
+              console.error('Speech synthesis error', e);
+            }
           }
         }
-      }
 
-      // Progress timer tracker
-      intervalRef.current = setInterval(() => {
-        setCurrentTime((prev) => {
-          if (prev >= totalTime) {
-            clearInterval(intervalRef.current);
-            setIsPlaying(false);
-            return totalTime;
-          }
-          const next = prev + 1 * playbackSpeed;
-          setProgress((next / totalTime) * 100);
-          return next;
-        });
-      }, 1000);
+        // Progress timer tracker for Speech Synthesis
+        clearInterval(intervalRef.current);
+        intervalRef.current = setInterval(() => {
+          setCurrentTime((prev) => {
+            if (prev >= totalAudioDuration) {
+              clearInterval(intervalRef.current);
+              setIsPlaying(false);
+              return totalAudioDuration;
+            }
+            const next = prev + 1 * playbackSpeed;
+            setProgress((next / totalAudioDuration) * 100);
+            return next;
+          });
+        }, 1000);
+      }
     }
   };
 
   const handleReset = () => {
-    if (hasSpeechSupport) {
+    if (audioUrl && audioElementRef.current) {
+      audioElementRef.current.pause();
+      audioElementRef.current.currentTime = 0;
+    } else if (hasSpeechSupport) {
       window.speechSynthesis.cancel();
     }
     clearInterval(intervalRef.current);
@@ -133,13 +171,39 @@ export const AudioNewsReader: React.FC<AudioNewsReaderProps> = ({
     const newSpeed = speeds[nextIndex];
     setPlaybackSpeed(newSpeed);
 
-    if (isPlaying && hasSpeechSupport && speechUtteranceRef.current) {
+    if (audioUrl && audioElementRef.current) {
+      audioElementRef.current.playbackRate = newSpeed;
+    } else if (isPlaying && hasSpeechSupport && speechUtteranceRef.current) {
       window.speechSynthesis.cancel();
       const cleanText = `${articleTitle}। ${articleText}`;
       const utterance = new SpeechSynthesisUtterance(cleanText);
       utterance.rate = newSpeed;
       utterance.lang = 'bn-IN';
       window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const handleToggleMute = () => {
+    const newMute = !isMuted;
+    setIsMuted(newMute);
+    if (audioUrl && audioElementRef.current) {
+      audioElementRef.current.muted = newMute;
+    }
+  };
+
+  // Click on progress bar to seek
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const width = rect.width;
+    const percentage = Math.max(0, Math.min(1, clickX / width));
+    const targetTime = percentage * totalAudioDuration;
+
+    setProgress(percentage * 100);
+    setCurrentTime(targetTime);
+
+    if (audioUrl && audioElementRef.current) {
+      audioElementRef.current.currentTime = targetTime;
     }
   };
 
@@ -157,30 +221,79 @@ export const AudioNewsReader: React.FC<AudioNewsReaderProps> = ({
       id="audio-news-player" 
       className="my-6 p-4 sm:p-5 rounded-none sm:rounded-sm bg-[#1a1a1a] text-white shadow-xs border border-[#2d2d2d] border-l-4 border-l-[#b91c1c]"
     >
+      {/* Hidden HTML5 Audio Element for custom uploaded sound */}
+      {audioUrl && (
+        <audio
+          ref={audioElementRef}
+          src={audioUrl}
+          preload="metadata"
+          onLoadedMetadata={() => {
+            if (audioElementRef.current && audioElementRef.current.duration) {
+              const dur = Math.floor(audioElementRef.current.duration);
+              setTotalAudioDuration(dur);
+            }
+          }}
+          onTimeUpdate={() => {
+            if (audioElementRef.current) {
+              const cur = audioElementRef.current.currentTime;
+              const dur = audioElementRef.current.duration || totalAudioDuration || 1;
+              setCurrentTime(cur);
+              setProgress((cur / dur) * 100);
+            }
+          }}
+          onEnded={() => {
+            setIsPlaying(false);
+            setProgress(100);
+          }}
+        />
+      )}
+
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         {/* Left info */}
         <div className="flex items-center gap-3.5">
           <div className="w-11 h-11 rounded-xs bg-[#b91c1c] text-white flex items-center justify-center shrink-0 border border-[#7f1d1d]">
-            <Headphones className={`w-5 h-5 ${isPlaying ? 'animate-bounce' : ''}`} />
+            {audioUrl ? (
+              <Mic className={`w-5 h-5 ${isPlaying ? 'animate-pulse text-[#fbbf24]' : ''}`} />
+            ) : (
+              <Headphones className={`w-5 h-5 ${isPlaying ? 'animate-bounce' : ''}`} />
+            )}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="bg-[#b91c1c]/20 text-[#fca5a5] border border-[#b91c1c]/40 text-[10px] font-bold px-2 py-0.2 rounded-xs uppercase tracking-wider font-['Noto_Serif_Bengali']">
-                অডিও বুলেটিন
-              </span>
+              {audioUrl ? (
+                <span className="bg-[#15803d] text-[#bbf7d0] border border-[#22c55e]/40 text-[10px] font-bold px-2 py-0.2 rounded-xs uppercase tracking-wider font-['Noto_Serif_Bengali'] flex items-center gap-1">
+                  <Mic className="w-2.5 h-2.5" />
+                  <span>সংযুক্ত ভয়েস বুলেটিন</span>
+                </span>
+              ) : (
+                <span className="bg-[#b91c1c]/20 text-[#fca5a5] border border-[#b91c1c]/40 text-[10px] font-bold px-2 py-0.2 rounded-xs uppercase tracking-wider font-['Noto_Serif_Bengali']">
+                  অডিও বুলেটিন
+                </span>
+              )}
               <span className="text-[#a3a3a3] text-xs flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-[#fbbf24]" />
-                BARTA PROHOR 24 ভয়েস
+                {audioName ? audioName : 'BARTA PROHOR 24 ভয়েস'}
               </span>
             </div>
             <h4 className="text-sm sm:text-base font-bold text-white mt-0.5 line-clamp-1 font-['Noto_Serif_Bengali']">
-              খবরের অডিও শুনুন: নেপালে খরাজ মুখোপাধ্যায়ের পরিস্থিতি
+              খবরের অডিও শুনুন: {articleTitle}
             </h4>
           </div>
         </div>
 
         {/* Action controls */}
         <div className="flex items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
+          {/* Mute Button */}
+          {audioUrl && (
+            <button
+              onClick={handleToggleMute}
+              className="p-2 rounded-xs bg-[#262626] hover:bg-[#333333] text-[#d4d4d4] hover:text-white transition-colors cursor-pointer border border-[#404040]"
+              title={isMuted ? 'আনমিউট করুন' : 'মিউট করুন'}
+            >
+              {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4" />}
+            </button>
+          )}
+
           {/* Reset / Rewind */}
           <button
             id="audio-reset-btn"
@@ -229,15 +342,19 @@ export const AudioNewsReader: React.FC<AudioNewsReaderProps> = ({
             {formatBengaliTime(currentTime)}
           </span>
 
-          <div className="flex-1 relative h-1.5 bg-[#333333] rounded-xs overflow-hidden cursor-pointer">
+          <div 
+            onClick={handleSeek}
+            className="flex-1 relative h-2 bg-[#333333] rounded-xs overflow-hidden cursor-pointer hover:h-2.5 transition-all"
+            title="ক্লিক করে অডিও সামনে/পিছনে নিন"
+          >
             <div 
-              className="absolute top-0 left-0 h-full bg-gradient-to-r from-[#b91c1c] to-[#d97706] transition-all duration-300 rounded-xs"
+              className="absolute top-0 left-0 h-full bg-gradient-to-r from-[#b91c1c] to-[#f59e0b] transition-all duration-150 rounded-xs"
               style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
             />
           </div>
 
           <span className="text-xs font-mono text-[#a3a3a3]">
-            {formatBengaliTime(totalTime)}
+            {formatBengaliTime(totalAudioDuration)}
           </span>
         </div>
 

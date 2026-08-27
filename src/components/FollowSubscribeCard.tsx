@@ -3,16 +3,27 @@ import { Bell, Mail, CheckCircle2, MessageCircle, Send, Radio, ShieldCheck, Hear
 
 interface FollowSubscribeCardProps {
   onOpenModal: () => void;
+  onSubscribe?: (data: { email?: string; phone?: string; name?: string; topics?: string[]; source: string }) => void;
 }
 
-export const FollowSubscribeCard: React.FC<FollowSubscribeCardProps> = ({ onOpenModal }) => {
+export const FollowSubscribeCard: React.FC<FollowSubscribeCardProps> = ({ onOpenModal, onSubscribe }) => {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email && !phone) return;
+    if (!email.trim() && !phone.trim()) return;
+
+    if (onSubscribe) {
+      onSubscribe({
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
+        topics: ['ব্রেকিং নিউজ', 'সারাদিনের হেডলাইন্স'],
+        source: 'ফলো ও নিউজলেটার বক্স'
+      });
+    }
+
     setIsSuccess(true);
     setTimeout(() => {
       setEmail('');
@@ -38,7 +49,7 @@ export const FollowSubscribeCard: React.FC<FollowSubscribeCardProps> = ({ onOpen
             <span className="text-[#fbbf24] block mt-1">BARTA PROHOR 24 ফলো এবং সাবস্ক্রাইব করুন।</span>
           </h3>
 
-          <p className="text-[#d4d4d4] text-xs sm:text-sm leading-relaxed max-w-xl">
+          <p className="text-[#d4d4d4] text-xs sm:text-sm leading-relaxed max-w-xl font-['Noto_Serif_Bengali']">
             টলিউড, জাতীয় ও আন্তর্জাতিক ব্রেকিং নিউজ, প্রাকৃতিক দুর্যোগের লাইভ কভারেজ সরাসরি আপনার ফোনে পেতে যুক্ত হোন আমাদের ডিজিটাল কমিউনিটিতে।
           </p>
 
@@ -48,7 +59,7 @@ export const FollowSubscribeCard: React.FC<FollowSubscribeCardProps> = ({ onOpen
               href="https://whatsapp.com"
               target="_blank"
               rel="noreferrer"
-              className="bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold px-3 py-1.5 rounded-xs flex items-center gap-1.5 transition-transform active:scale-95 border border-[#047857]"
+              className="bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold px-3 py-1.5 rounded-xs flex items-center gap-1.5 transition-transform active:scale-95 border border-[#047857] font-['Noto_Serif_Bengali']"
             >
               <MessageCircle className="w-4 h-4 fill-white" />
               <span>WhatsApp চ্যানেল যুক্ত করুন</span>
@@ -58,11 +69,19 @@ export const FollowSubscribeCard: React.FC<FollowSubscribeCardProps> = ({ onOpen
               href="https://t.me"
               target="_blank"
               rel="noreferrer"
-              className="bg-[#229ED9] hover:bg-[#1e8cc0] text-white text-xs font-bold px-3 py-1.5 rounded-xs flex items-center gap-1.5 transition-transform active:scale-95 border border-[#1e8cc0]"
+              className="bg-[#229ED9] hover:bg-[#1e8cc0] text-white text-xs font-bold px-3 py-1.5 rounded-xs flex items-center gap-1.5 transition-transform active:scale-95 border border-[#1e8cc0] font-['Noto_Serif_Bengali']"
             >
               <Send className="w-4 h-4 fill-white" />
               <span>Telegram এ ফলো করুন</span>
             </a>
+
+            <button
+              onClick={onOpenModal}
+              className="bg-[#333333] hover:bg-[#444444] text-[#fbbf24] text-xs font-bold px-3 py-1.5 rounded-xs flex items-center gap-1.5 transition-colors border border-[#555555] cursor-pointer font-['Noto_Serif_Bengali']"
+            >
+              <Bell className="w-3.5 h-3.5" />
+              <span>কাস্টম বিষয় বেছে নিন</span>
+            </button>
           </div>
         </div>
 
@@ -73,9 +92,9 @@ export const FollowSubscribeCard: React.FC<FollowSubscribeCardProps> = ({ onOpen
               <div className="w-12 h-12 rounded-full bg-[#064e3b] text-[#34d399] mx-auto flex items-center justify-center border border-[#059669]">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
-              <h4 className="font-bold text-base text-white font-['Noto_Serif_Bengali']">অভিনন্দন! আপনি সাবস্ক্রাইব করেছেন</h4>
-              <p className="text-xs text-[#d4d4d4]">
-                BARTA PROHOR 24 এর বিশেষ ব্রেকিং নিউজ অ্যালার্ট আপনার কাছে পৌঁছে দেওয়া হবে।
+              <h4 className="font-bold text-base text-white font-['Noto_Serif_Bengali']">অভিনন্দন! আপনার সাবস্ক্রিপশন সংরক্ষিত হয়েছে</h4>
+              <p className="text-xs text-[#d4d4d4] font-['Noto_Serif_Bengali']">
+                BARTA PROHOR 24 এর বিশেষ ব্রেকিং নিউজ অ্যালার্ট আপনার ইমেল বা নম্বরে পৌঁছে দেওয়া হবে।
               </p>
             </div>
           ) : (
@@ -90,7 +109,7 @@ export const FollowSubscribeCard: React.FC<FollowSubscribeCardProps> = ({ onOpen
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="আপনার ইমেল আইডি লিখুন..."
+                  placeholder="আপনার ইমেল / Gmail লিখুন..."
                   className="w-full bg-[#1a1a1a] border border-[#404040] rounded-xs px-3 py-2 text-xs sm:text-sm text-white placeholder-[#737373] focus:outline-hidden focus:border-[#b91c1c]"
                 />
               </div>
@@ -107,13 +126,13 @@ export const FollowSubscribeCard: React.FC<FollowSubscribeCardProps> = ({ onOpen
 
               <button
                 type="submit"
-                className="w-full bg-[#b91c1c] hover:bg-[#991b1b] text-white font-bold py-2 rounded-xs text-xs sm:text-sm transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer border border-[#7f1d1d]"
+                className="w-full bg-[#b91c1c] hover:bg-[#991b1b] text-white font-bold py-2 rounded-xs text-xs sm:text-sm transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer border border-[#7f1d1d] font-['Noto_Serif_Bengali']"
               >
                 <span>সাবস্ক্রাইব সম্পন্ন করুন</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
 
-              <div className="flex items-center justify-center gap-1 text-[11px] text-[#a3a3a3] pt-1">
+              <div className="flex items-center justify-center gap-1 text-[11px] text-[#a3a3a3] pt-1 font-['Noto_Serif_Bengali']">
                 <ShieldCheck className="w-3.5 h-3.5 text-[#34d399]" />
                 <span>আপনার গোপনীয়তা সুরক্ষিত • নো-স্প্যাম গ্যারান্টি</span>
               </div>

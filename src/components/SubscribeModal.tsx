@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
-import { X, Bell, CheckCircle2, MessageCircle, Send, Radio, ShieldCheck, Mail } from 'lucide-react';
+import { X, Bell, CheckCircle2, MessageCircle, Send, Radio, ShieldCheck, Mail, User } from 'lucide-react';
 
 interface SubscribeModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSubscribe?: (data: { email?: string; phone?: string; name?: string; topics?: string[]; source: string }) => void;
 }
 
-export const SubscribeModal: React.FC<SubscribeModalProps> = ({ isOpen, onClose }) => {
+export const SubscribeModal: React.FC<SubscribeModalProps> = ({ isOpen, onClose, onSubscribe }) => {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [subscribed, setSubscribed] = useState(false);
-  const [selectedTopics, setSelectedTopics] = useState<string[]>(['বিনোদন', 'ব্রেকিং নিউজ']);
+  const [selectedTopics, setSelectedTopics] = useState<string[]>(['ব্রেকিং নিউজ', 'বিনোদন ও টলিউড']);
+  const [error, setError] = useState('');
 
   if (!isOpen) return null;
 
@@ -32,7 +35,32 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({ isOpen, onClose 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim() && !whatsapp.trim()) {
+      setError('অনুগ্রহ করে অন্তত একটি ইমেল আইডি অথবা মোবাইল নম্বর দিন।');
+      return;
+    }
+    setError('');
+
+    if (onSubscribe) {
+      onSubscribe({
+        name: name.trim() || undefined,
+        email: email.trim() || undefined,
+        phone: whatsapp.trim() || undefined,
+        topics: selectedTopics,
+        source: 'সাবস্ক্রিপশন পপআপ'
+      });
+    }
+
     setSubscribed(true);
+  };
+
+  const handleModalClose = () => {
+    setSubscribed(false);
+    setEmail('');
+    setWhatsapp('');
+    setName('');
+    setError('');
+    onClose();
   };
 
   return (
@@ -49,12 +77,12 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({ isOpen, onClose 
             </div>
             <div>
               <h3 className="font-bold text-sm sm:text-base leading-none font-['Noto_Serif_Bengali']">BARTA PROHOR 24 সাবস্ক্রিপশন</h3>
-              <p className="text-[11px] text-[#a3a3a3] mt-1 font-['Noto_Serif_Bengali']">সব খবর সবার আগে আপনার হাতে</p>
+              <p className="text-[11px] text-[#a3a3a3] mt-1 font-['Noto_Serif_Bengali']">সব খবর সবার আগে আপনার ডিভাইসে</p>
             </div>
           </div>
 
           <button
-            onClick={onClose}
+            onClick={handleModalClose}
             className="p-1 rounded-xs bg-[#262626] hover:bg-[#b91c1c] text-[#a3a3a3] hover:text-white transition-colors cursor-pointer border border-[#404040]"
           >
             <X className="w-4 h-4" />
@@ -70,10 +98,10 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({ isOpen, onClose 
               </div>
               <h4 className="text-lg font-bold text-[#1a1a1a] font-['Noto_Serif_Bengali']">আপনি সফলভাবে সাবস্ক্রাইব করেছেন!</h4>
               <p className="text-xs sm:text-sm text-[#525252] leading-relaxed font-['Noto_Serif_Bengali']">
-                BARTA PROHOR 24-এর সাথে থাকার জন্য ধন্যবাদ। গুরুত্বপূর্ণ খবর প্রকাশিত হওয়া মাত্রই আপনাকে অবহিত করা হবে।
+                BARTA PROHOR 24-এর সাথে থাকার জন্য ধন্যবাদ। আপনার তথ্য সুরক্ষিতভাবে সংরক্ষণ করা হয়েছে। তাজা ব্রেকিং নিউজ ও আপডেট যথাসময়ে আপনার কাছে পাঠানো হবে।
               </p>
               <button
-                onClick={onClose}
+                onClick={handleModalClose}
                 className="bg-[#1a1a1a] text-white text-xs font-bold px-6 py-2.5 rounded-xs hover:bg-[#333333] transition-colors cursor-pointer font-['Noto_Serif_Bengali']"
               >
                 পড়া চালিয়ে যান
@@ -82,7 +110,7 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({ isOpen, onClose 
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <p className="text-xs sm:text-sm text-[#525252] leading-relaxed font-['Noto_Serif_Bengali']">
-                দেশ-বিদেশের তাজা খবর, বিনোদন এবং এক্সক্লুসিভ লাইভ কভারেজ নিয়মিত পেতে পছন্দের ক্যাটাগরি বেছে নিন:
+                দেশ-বিদেশের তাজা খবর, বিনোদন এবং এক্সক্লুসিভ লাইভ কভারেজ নিয়মিত পেতে সাবস্ক্রাইব করুন:
               </p>
 
               {/* Topics checkbox pills */}
@@ -116,16 +144,15 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({ isOpen, onClose 
               <div className="space-y-2.5 pt-1">
                 <div>
                   <label className="block text-xs font-bold text-[#1a1a1a] mb-1 font-['Noto_Serif_Bengali']">
-                    ইমেল আইডি
+                    আপনার নাম (ঐচ্ছিক)
                   </label>
                   <div className="relative">
-                    <Mail className="w-4 h-4 text-[#737373] absolute left-3 top-2.5" />
+                    <User className="w-4 h-4 text-[#737373] absolute left-3 top-2.5" />
                     <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="name@example.com"
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="আপনার নাম লিখুন..."
                       className="w-full pl-9 pr-3 py-2 border border-[#ded8cb] bg-white rounded-xs text-xs sm:text-sm focus:outline-hidden focus:border-[#b91c1c]"
                     />
                   </div>
@@ -133,20 +160,48 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({ isOpen, onClose 
 
                 <div>
                   <label className="block text-xs font-bold text-[#1a1a1a] mb-1 font-['Noto_Serif_Bengali']">
-                    হোয়াটসঅ্যাপ বা মোবাইল নম্বর (ঐচ্ছিক)
+                    ইমেল আইডি / Gmail
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-[#737373] absolute left-3 top-2.5" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (error) setError('');
+                      }}
+                      placeholder="yourname@gmail.com"
+                      className="w-full pl-9 pr-3 py-2 border border-[#ded8cb] bg-white rounded-xs text-xs sm:text-sm focus:outline-hidden focus:border-[#b91c1c]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#1a1a1a] mb-1 font-['Noto_Serif_Bengali']">
+                    হোয়াটসঅ্যাপ বা মোবাইল নম্বর
                   </label>
                   <div className="relative">
                     <MessageCircle className="w-4 h-4 text-[#737373] absolute left-3 top-2.5" />
                     <input
                       type="tel"
                       value={whatsapp}
-                      onChange={(e) => setWhatsapp(e.target.value)}
-                      placeholder="+91 9876543210"
+                      onChange={(e) => {
+                        setWhatsapp(e.target.value);
+                        if (error) setError('');
+                      }}
+                      placeholder="+91 98300 XXXXX"
                       className="w-full pl-9 pr-3 py-2 border border-[#ded8cb] bg-white rounded-xs text-xs sm:text-sm focus:outline-hidden focus:border-[#b91c1c]"
                     />
                   </div>
                 </div>
               </div>
+
+              {error && (
+                <div className="text-xs text-[#b91c1c] font-bold bg-[#fef2f2] p-2 rounded-xs border border-[#fca5a5] font-['Noto_Serif_Bengali']">
+                  {error}
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -158,7 +213,7 @@ export const SubscribeModal: React.FC<SubscribeModalProps> = ({ isOpen, onClose 
 
               <div className="flex items-center justify-center gap-1 text-[11px] text-[#737373] font-['Noto_Serif_Bengali']">
                 <ShieldCheck className="w-3.5 h-3.5 text-[#059669]" />
-                <span>আপনার কোনো তথ্য তৃতীয় পক্ষকে প্রদান করা হয় না</span>
+                <span>আপনার কোনো তথ্য তৃতীয় পক্ষকে প্রদান করা হয় না • সম্পূর্ণ সুরক্ষিত</span>
               </div>
             </form>
           )}

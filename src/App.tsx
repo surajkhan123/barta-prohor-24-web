@@ -14,7 +14,8 @@ import { BookmarksModal } from './components/BookmarksModal';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { QRCodeModal } from './components/QRCodeModal';
 import { MAIN_ARTICLE } from './data/newsData';
-import { NewsArticle } from './types';
+import { NewsArticle, Subscriber } from './types';
+import { loadStoredSubscribers, saveSubscribersToStorage } from './data/subscriberStore';
 import { 
   Radio, 
   Flame, 
@@ -52,6 +53,11 @@ export default function App() {
 
   const article = articles.find(a => a.id === currentArticleId) || articles[0] || MAIN_ARTICLE;
 
+  // Subscriber state loaded from store
+  const [subscribers, setSubscribers] = useState<Subscriber[]>(() => {
+    return loadStoredSubscribers();
+  });
+
   const [isBookmarked, setIsBookmarked] = useState<boolean>(() => {
     return localStorage.getItem(`bp24_bookmark_${article.id}`) === 'true';
   });
@@ -61,6 +67,7 @@ export default function App() {
   const [isQROpen, setIsQROpen] = useState(false);
   const [readingProgress, setReadingProgress] = useState(0);
   const [shareToast, setShareToast] = useState(false);
+  const [subToast, setSubToast] = useState<string | null>(null);
 
   // Sync bookmark state when article changes
   useEffect(() => {
@@ -71,6 +78,44 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('bp24_all_articles', JSON.stringify(articles));
   }, [articles]);
+
+  // Persist subscribers list whenever it changes
+  useEffect(() => {
+    saveSubscribersToStorage(subscribers);
+  }, [subscribers]);
+
+  // Subscriber management functions
+  const handleAddSubscriber = (subData: Omit<Subscriber, 'id' | 'subscribedAt' | 'timestamp'>) => {
+    const dateFormatted = new Intl.DateTimeFormat('bn-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    }).format(new Date());
+
+    const newSub: Subscriber = {
+      ...subData,
+      id: 'sub_' + Math.random().toString(36).substring(2, 9),
+      subscribedAt: `আজ, ${dateFormatted}`,
+      timestamp: Date.now(),
+      status: subData.status || 'active'
+    };
+
+    setSubscribers(prev => [newSub, ...prev]);
+    setSubToast(subData.email || subData.phone || 'আপনার সাবস্ক্রিপশন');
+    setTimeout(() => setSubToast(null), 4000);
+  };
+
+  const handleDeleteSubscriber = (id: string) => {
+    setSubscribers(prev => prev.filter(s => s.id !== id));
+  };
+
+  const handleToggleSubscriberStatus = (id: string) => {
+    setSubscribers(prev =>
+      prev.map(s =>
+        s.id === id ? { ...s, status: s.status === 'active' ? 'inactive' : 'active' } : s
+      )
+    );
+  };
 
   // Track scroll progress for reading progress bar
   useEffect(() => {
@@ -203,6 +248,8 @@ export default function App() {
               articleText={article.paragraphs.join(' ')}
               articleTitle={article.title}
               durationSeconds={article.audioDuration}
+              audioUrl={article.audioUrl}
+              audioName={article.audioName}
             />
 
             {/* Full Body Article with Reader Controls */}
@@ -212,7 +259,10 @@ export default function App() {
             />
 
             {/* Follow & Subscribe Section (Prominently featured as requested) */}
-            <FollowSubscribeCard onOpenModal={() => setIsSubscribeOpen(true)} />
+            <FollowSubscribeCard 
+              onOpenModal={() => setIsSubscribeOpen(true)} 
+              onSubscribe={handleAddSubscriber}
+            />
 
             {/* Reader Reactions & Live Opinion Poll */}
             <ReactionAndPoll />
@@ -340,6 +390,7 @@ export default function App() {
       <SubscribeModal
         isOpen={isSubscribeOpen}
         onClose={() => setIsSubscribeOpen(false)}
+        onSubscribe={handleAddSubscriber}
       />
 
       <BookmarksModal
@@ -352,7 +403,7 @@ export default function App() {
         }}
       />
 
-      {/* Admin Panel Modal for Daily News Publishing */}
+      {/* Admin Panel Modal for Daily News Publishing & Subscriber CRM */}
       <AdminPanelModal
         isOpen={isAdminOpen}
         onClose={() => setIsAdminOpen(false)}
@@ -362,6 +413,10 @@ export default function App() {
         onSaveArticle={handleSaveArticle}
         onDeleteArticle={handleDeleteArticle}
         onOpenQRModal={() => setIsQROpen(true)}
+        subscribers={subscribers}
+        onAddSubscriber={handleAddSubscriber}
+        onDeleteSubscriber={handleDeleteSubscriber}
+        onToggleSubscriberStatus={handleToggleSubscriberStatus}
       />
 
       {/* QR Code Sharing Modal */}
@@ -376,6 +431,19 @@ export default function App() {
         <div className="fixed bottom-6 right-6 bg-[#1a1a1a] text-white text-xs px-4 py-2.5 rounded-sm shadow-xl z-50 flex items-center gap-2 border border-[#333333] animate-bounce">
           <Check className="w-4 h-4 text-[#34d399]" />
           <span>সংবাদের লিংক সফলভাবে কপি করা হয়েছে!</span>
+        </div>
+      )}
+
+      {/* Subscription Success Notification Toast */}
+      {subToast && (
+        <div className="fixed bottom-6 left-6 bg-[#065f46] text-white text-xs px-4 py-3 rounded-xs shadow-2xl z-50 flex items-center gap-2.5 border border-[#10b981] font-['Noto_Serif_Bengali'] animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="w-5 h-5 rounded-full bg-[#10b981] text-white flex items-center justify-center shrink-0">
+            <Check className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <p className="font-bold">ধন্যবাদ! সাবস্ক্রিপশন সফল হয়েছে।</p>
+            <p className="text-[11px] text-[#a7f3d0]">{subToast} ডেটাবেসে সংরক্ষিত হয়েছে।</p>
+          </div>
         </div>
       )}
     </div>

@@ -21,9 +21,19 @@ import {
   Download,
   Upload,
   Layers,
-  Plus
+  Plus,
+  Mic,
+  Volume2,
+  Play,
+  Pause,
+  RotateCcw,
+  StopCircle,
+  Music,
+  Headphones,
+  Users
 } from 'lucide-react';
-import { NewsArticle, ArticleImage } from '../types';
+import { NewsArticle, ArticleImage, Subscriber } from '../types';
+import { SubscriberManager } from './SubscriberManager';
 
 interface AdminPanelModalProps {
   isOpen: boolean;
@@ -34,6 +44,10 @@ interface AdminPanelModalProps {
   onSaveArticle: (article: NewsArticle) => void;
   onDeleteArticle: (id: string) => void;
   onOpenQRModal: () => void;
+  subscribers?: Subscriber[];
+  onAddSubscriber?: (subscriber: Omit<Subscriber, 'id' | 'subscribedAt' | 'timestamp'>) => void;
+  onDeleteSubscriber?: (id: string) => void;
+  onToggleSubscriberStatus?: (id: string) => void;
 }
 
 export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
@@ -45,11 +59,15 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   onSaveArticle,
   onDeleteArticle,
   onOpenQRModal,
+  subscribers = [],
+  onAddSubscriber = () => {},
+  onDeleteSubscriber = () => {},
+  onToggleSubscriberStatus = () => {},
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [authError, setAuthError] = useState('');
-  const [activeTab, setActiveTab] = useState<'create' | 'list' | 'guide' | 'settings'>('create');
+  const [activeTab, setActiveTab] = useState<'create' | 'list' | 'subscribers' | 'guide' | 'settings'>('create');
   
   // Form State
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -61,6 +79,24 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [additionalImages, setAdditionalImages] = useState<ArticleImage[]>([]);
   const [newAddImageUrl, setNewAddImageUrl] = useState('');
   const [newAddImageCaption, setNewAddImageCaption] = useState('');
+  
+  // Audio Voice News State
+  const [audioUrl, setAudioUrl] = useState<string>('');
+  const [audioName, setAudioName] = useState<string>('');
+  const [audioDuration, setAudioDuration] = useState<number>(0);
+  const [audioCustomUrlInput, setAudioCustomUrlInput] = useState<string>('');
+  
+  // Live Voice Recording State
+  const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<any>(null);
+
+  // Audio Preview Player in Form
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState<boolean>(false);
+  const formAudioRef = useRef<HTMLAudioElement | null>(null);
+
   const [location, setLocation] = useState('কলকাতা / কাঠমান্ডু');
   const [authorName, setAuthorName] = useState('বার্তা প্রহর ২৪ ডিজিটাল ডেস্ক');
   const [paragraphsText, setParagraphsText] = useState('');
@@ -72,6 +108,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   // File input refs
   const primaryFileInputRef = useRef<HTMLInputElement>(null);
   const galleryFileInputRef = useRef<HTMLInputElement>(null);
+  const audioFileInputRef = useRef<HTMLInputElement>(null);
 
   // Admin PIN configuration (Default: 7780)
   const [adminPin, setAdminPin] = useState<string>(() => {
@@ -125,6 +162,14 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     setAdditionalImages([]);
     setNewAddImageUrl('');
     setNewAddImageCaption('');
+    setAudioUrl('');
+    setAudioName('');
+    setAudioDuration(0);
+    setAudioCustomUrlInput('');
+    setIsPreviewPlaying(false);
+    if (audioFileInputRef.current) {
+      audioFileInputRef.current.value = '';
+    }
     setLocation('কলকাতা');
     setAuthorName('বার্তা প্রহর ২৪ ডিজিটাল ডেস্ক');
     setParagraphsText('');
@@ -141,6 +186,10 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     setImageUrl(art.featuredImage?.url || '');
     setImageCaption(art.featuredImage?.caption || '');
     setAdditionalImages(art.galleryImages || (art.secondaryImage ? [art.secondaryImage] : []));
+    setAudioUrl(art.audioUrl || '');
+    setAudioName(art.audioName || '');
+    setAudioDuration(art.audioDuration || 0);
+    setAudioCustomUrlInput(art.audioUrl && !art.audioUrl.startsWith('data:') ? art.audioUrl : '');
     setLocation(art.location);
     setAuthorName(art.author.name);
     setParagraphsText(art.paragraphs.join('\n\n'));
@@ -188,7 +237,6 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         };
         reader.readAsDataURL(file);
       });
-      // reset file input
       if (galleryFileInputRef.current) {
         galleryFileInputRef.current.value = '';
       }
@@ -213,6 +261,123 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
   const handleRemoveGalleryImage = (index: number) => {
     setAdditionalImages(prev => prev.filter((_, idx) => idx !== index));
+  };
+
+  // --- AUDIO VOICE MANAGEMENT HANDLERS ---
+  const handleAudioFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          const dataUrl = reader.result;
+          setAudioUrl(dataUrl);
+          setAudioName(file.name);
+          
+          // Calculate audio duration from file
+          const tempAudio = new Audio(dataUrl);
+          tempAudio.onloadedmetadata = () => {
+            if (tempAudio.duration && !isNaN(tempAudio.duration)) {
+              setAudioDuration(Math.floor(tempAudio.duration));
+            }
+          };
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAddAudioUrl = () => {
+    if (audioCustomUrlInput.trim()) {
+      setAudioUrl(audioCustomUrlInput.trim());
+      setAudioName('ওয়েব অডিও ফাইল / পডকাস্ট');
+      const tempAudio = new Audio(audioCustomUrlInput.trim());
+      tempAudio.onloadedmetadata = () => {
+        if (tempAudio.duration && !isNaN(tempAudio.duration)) {
+          setAudioDuration(Math.floor(tempAudio.duration));
+        }
+      };
+    }
+  };
+
+  const handleDeleteAudio = () => {
+    if (formAudioRef.current) {
+      formAudioRef.current.pause();
+    }
+    setAudioUrl('');
+    setAudioName('');
+    setAudioDuration(0);
+    setAudioCustomUrlInput('');
+    setIsPreviewPlaying(false);
+    if (audioFileInputRef.current) {
+      audioFileInputRef.current.value = '';
+    }
+  };
+
+  // Live Voice Recording with Microphone
+  const startVoiceRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            setAudioUrl(reader.result);
+            setAudioName(`লাইভ ভয়েস রেকর্ড (${recordingSeconds}s)`);
+            setAudioDuration(recordingSeconds || 30);
+          }
+        };
+        reader.readAsDataURL(audioBlob);
+
+        // Stop all audio tracks
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingSeconds(0);
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error('Microphone access error:', err);
+      alert('মাইক্রোফোন চালু করা যায়নি! অনুগ্রহ করে ব্রাউজারের মাইক্রোফোন পারমিশন চেক করুন।');
+    }
+  };
+
+  const stopVoiceRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      clearInterval(recordingTimerRef.current);
+    }
+  };
+
+  // Toggle preview player inside form
+  const toggleFormAudioPreview = () => {
+    if (!formAudioRef.current) return;
+    if (isPreviewPlaying) {
+      formAudioRef.current.pause();
+      setIsPreviewPlaying(false);
+    } else {
+      formAudioRef.current.play().then(() => {
+        setIsPreviewPlaying(true);
+      }).catch(err => {
+        console.error('Preview error:', err);
+      });
+    }
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -255,6 +420,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       } : undefined,
       secondaryImage: additionalImages.length > 0 ? additionalImages[0] : undefined,
       galleryImages: additionalImages.length > 0 ? additionalImages : undefined,
+      audioUrl: audioUrl.trim() || undefined,
+      audioName: audioName.trim() || undefined,
       paragraphs: paragraphs,
       keyHighlights: [
         'তাৎক্ষণিক সংবাদ আপডেট বার্তা প্রহর ২৪ ডিজিটালে প্রকাশিত।',
@@ -278,7 +445,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
           note: 'যেকোনো তাজা খবর বা মতামত জানাতে সরাসরি কল বা হোয়াটসঅ্যাপ করুন।'
         }
       ],
-      audioDuration: Math.max(45, paragraphs.length * 20),
+      audioDuration: audioDuration > 0 ? audioDuration : Math.max(45, paragraphs.length * 20),
       tags: [category, 'ব্রেকিং', 'তাজা খবর', 'BartaProhor24'],
     };
 
@@ -314,7 +481,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-[#a3a3a3] font-['Noto_Serif_Bengali']">
-                প্রতিদিনের তাজা খবর প্রকাশ, এডিট এবং বিনামূল্যে হোস্টিং ও কিউআর শেয়ারিং গাইড
+                খবর প্রকাশ, অডিও ভয়েস বুলেটিন আপলোড, এডিট ও বিনামূল্যে হোস্টিং গাইড
               </p>
             </div>
           </div>
@@ -352,101 +519,119 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 maxLength={8}
                 value={pinInput}
                 onChange={(e) => setPinInput(e.target.value)}
-                placeholder="গোপন পিন কোড দিন"
+                placeholder="পিন কোড লিখুন (যেমন: 7780)"
+                className="w-full text-center tracking-widest text-lg font-mono bg-white border-2 border-[#ded8cb] focus:border-[#b91c1c] p-2.5 rounded-xs focus:outline-hidden text-[#1a1a1a]"
                 autoFocus
-                className="w-full text-center tracking-widest text-lg font-mono py-2.5 px-4 bg-white border border-[#ded8cb] rounded-xs focus:border-[#b91c1c] focus:outline-hidden"
               />
+
               {authError && (
-                <p className="text-xs text-[#b91c1c] font-bold font-['Noto_Serif_Bengali']">{authError}</p>
+                <p className="text-xs text-[#b91c1c] font-bold font-['Noto_Serif_Bengali']">
+                  {authError}
+                </p>
               )}
+
               <button
                 type="submit"
-                className="w-full bg-[#b91c1c] hover:bg-[#991b1b] text-white font-bold py-2.5 rounded-xs text-xs sm:text-sm cursor-pointer border border-[#7f1d1d] font-['Noto_Serif_Bengali']"
+                className="w-full bg-[#b91c1c] hover:bg-[#991b1b] text-white py-2.5 px-4 rounded-xs font-bold text-xs cursor-pointer border border-[#7f1d1d] font-['Noto_Serif_Bengali']"
               >
-                লগইন করুন
+                নিউজডেস্কে প্রবেশ করুন
               </button>
+
+              <div className="text-[11px] text-[#737373] bg-[#fbf9f4] p-2 rounded-xs border border-[#ded8cb] font-mono">
+                ডিফল্ট পিন কোড: <strong>7780</strong> অথবা <strong>2424</strong>
+              </div>
             </form>
           </div>
         ) : (
-          /* Logged In Dashboard */
-          <div className="flex-1 flex flex-col overflow-hidden">
+          /* Authenticated Admin Dashboard */
+          <div className="flex flex-col flex-1 overflow-hidden">
             {/* Top Navigation Tabs */}
-            <div className="flex items-center justify-between px-4 sm:px-6 bg-[#f3efe6] border-b border-[#ded8cb]">
-              <div className="flex items-center gap-1 sm:gap-2">
+            <div className="bg-[#f3efe6] border-b border-[#ded8cb] px-4 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 overflow-x-auto">
                 <button
-                  onClick={() => { setActiveTab('create'); resetForm(); }}
-                  className={`py-3 px-3 sm:px-4 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 font-['Noto_Serif_Bengali'] ${
+                  onClick={() => setActiveTab('create')}
+                  className={`text-xs font-bold px-3 py-1.5 rounded-xs transition-colors flex items-center gap-1.5 font-['Noto_Serif_Bengali'] cursor-pointer ${
                     activeTab === 'create'
-                      ? 'border-[#b91c1c] text-[#b91c1c] bg-[#f8f7f2]'
-                      : 'border-transparent text-[#525252] hover:text-[#1a1a1a]'
+                      ? 'bg-[#b91c1c] text-white'
+                      : 'bg-white text-[#525252] border border-[#ded8cb] hover:bg-[#eae5db]'
                   }`}
                 >
-                  <PlusCircle className="w-4 h-4" />
-                  <span>{editingId ? 'খবর সম্পাদনা (Edit)' : 'নতুন খবর যোগ করুন'}</span>
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>{editingId ? 'সংবাদ এডিট করুন' : '+ নতুন খবর লিখুন'}</span>
                 </button>
 
                 <button
                   onClick={() => setActiveTab('list')}
-                  className={`py-3 px-3 sm:px-4 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 font-['Noto_Serif_Bengali'] ${
+                  className={`text-xs font-bold px-3 py-1.5 rounded-xs transition-colors flex items-center gap-1.5 font-['Noto_Serif_Bengali'] cursor-pointer ${
                     activeTab === 'list'
-                      ? 'border-[#b91c1c] text-[#b91c1c] bg-[#f8f7f2]'
-                      : 'border-transparent text-[#525252] hover:text-[#1a1a1a]'
+                      ? 'bg-[#b91c1c] text-white'
+                      : 'bg-white text-[#525252] border border-[#ded8cb] hover:bg-[#eae5db]'
                   }`}
                 >
-                  <FileText className="w-4 h-4" />
-                  <span>সব প্রকাশিত সংবাদ ({articles.length})</span>
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>সকল প্রকাশিত খবর ({articles.length})</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('subscribers')}
+                  className={`text-xs font-bold px-3 py-1.5 rounded-xs transition-colors flex items-center gap-1.5 font-['Noto_Serif_Bengali'] cursor-pointer ${
+                    activeTab === 'subscribers'
+                      ? 'bg-[#b91c1c] text-white'
+                      : 'bg-white text-[#525252] border border-[#ded8cb] hover:bg-[#eae5db]'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5 text-[#059669]" />
+                  <span>পাঠক ডাটাবেস ({subscribers.length})</span>
                 </button>
 
                 <button
                   onClick={() => setActiveTab('guide')}
-                  className={`py-3 px-3 sm:px-4 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 font-['Noto_Serif_Bengali'] ${
+                  className={`text-xs font-bold px-3 py-1.5 rounded-xs transition-colors flex items-center gap-1.5 font-['Noto_Serif_Bengali'] cursor-pointer ${
                     activeTab === 'guide'
-                      ? 'border-[#b91c1c] text-[#b91c1c] bg-[#f8f7f2]'
-                      : 'border-transparent text-[#525252] hover:text-[#1a1a1a]'
+                      ? 'bg-[#b91c1c] text-white'
+                      : 'bg-white text-[#525252] border border-[#ded8cb] hover:bg-[#eae5db]'
                   }`}
                 >
-                  <Globe className="w-4 h-4" />
-                  <span>ফ্রি সার্ভার ও ডোমেন গাইড</span>
+                  <Globe className="w-3.5 h-3.5 text-[#2563eb]" />
+                  <span>ফ্রি হোস্টিং ও লাইভ গাইড</span>
                 </button>
 
                 <button
                   onClick={() => setActiveTab('settings')}
-                  className={`py-3 px-3 sm:px-4 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 font-['Noto_Serif_Bengali'] ${
+                  className={`text-xs font-bold px-3 py-1.5 rounded-xs transition-colors flex items-center gap-1.5 font-['Noto_Serif_Bengali'] cursor-pointer ${
                     activeTab === 'settings'
-                      ? 'border-[#b91c1c] text-[#b91c1c] bg-[#f8f7f2]'
-                      : 'border-transparent text-[#525252] hover:text-[#1a1a1a]'
+                      ? 'bg-[#b91c1c] text-white'
+                      : 'bg-white text-[#525252] border border-[#ded8cb] hover:bg-[#eae5db]'
                   }`}
                 >
-                  <Key className="w-4 h-4" />
-                  <span>পাসওয়ার্ড সেটিংস</span>
+                  <Key className="w-3.5 h-3.5" />
+                  <span>পিন পরিবর্তন</span>
                 </button>
               </div>
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => {
-                    onClose();
-                    onOpenQRModal();
-                  }}
-                  className="bg-[#1a1a1a] hover:bg-[#333333] text-white text-xs px-2.5 py-1.5 rounded-xs flex items-center gap-1 font-bold font-['Noto_Serif_Bengali']"
+                  onClick={onOpenQRModal}
+                  className="bg-[#1a1a1a] hover:bg-[#333333] text-[#fbbf24] px-2.5 py-1 rounded-xs text-xs font-bold flex items-center gap-1 cursor-pointer border border-[#333333] font-['Noto_Serif_Bengali']"
                 >
-                  <QrCode className="w-3.5 h-3.5 text-[#fbbf24]" />
-                  <span className="hidden sm:inline">কিউআর কোড তৈরি</span>
+                  <QrCode className="w-3.5 h-3.5" />
+                  <span>QR কোড দেখুন</span>
                 </button>
+
                 <button
                   onClick={handleLogout}
-                  className="text-xs text-[#737373] hover:text-[#b91c1c] p-1.5 flex items-center gap-1"
-                  title="লগআউট"
+                  className="text-xs text-[#525252] hover:text-[#b91c1c] p-1.5 flex items-center gap-1 cursor-pointer font-['Noto_Serif_Bengali']"
+                  title="লগ আউট"
                 >
-                  <LogOut className="w-4 h-4" />
-                  <span className="hidden sm:inline font-['Noto_Serif_Bengali']">লগআউট</span>
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>লগ আউট</span>
                 </button>
               </div>
             </div>
 
-            {/* Success alert */}
+            {/* Success Toast Banner */}
             {successToast && (
-              <div className="bg-[#ecfdf5] border-b border-[#a7f3d0] text-[#065f46] text-xs px-6 py-2 flex items-center gap-2 font-bold font-['Noto_Serif_Bengali']">
+              <div className="bg-[#ecfdf5] border-b border-[#a7f3d0] text-[#065f46] px-4 py-2 text-xs font-bold flex items-center gap-2 shrink-0 font-['Noto_Serif_Bengali']">
                 <Check className="w-4 h-4 text-[#059669]" />
                 <span>{successToast}</span>
               </div>
@@ -537,7 +722,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Image & Photo Upload Section with Multiple Photos */}
+                  {/* Image & Photo Upload Section */}
                   <div className="space-y-4 bg-white p-4 sm:p-5 rounded-xs border border-[#ded8cb]">
                     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#ded8cb] pb-2.5">
                       <div className="flex items-center gap-2">
@@ -549,7 +734,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                             ২. খবরের প্রধান ও একাধিক ছবি (Photo Upload & Gallery)
                           </h4>
                           <p className="text-[11px] text-[#737373]">
-                            ফোন/কম্পিউটার থেকে ছবি আপলোড করুন অথবা সরাসরি ওয়েব লিংক ব্যবহার করুন
+                            ডিভাইস থেকে ছবি আপলোড করুন অথবা সরাসরি ওয়েব লিংক ব্যবহার করুন
                           </p>
                         </div>
                       </div>
@@ -578,9 +763,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         )}
                       </div>
 
-                      {/* Photo Upload & URL options grid */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {/* Option A: Upload from Device */}
                         <div className="space-y-1.5">
                           <span className="text-[11px] font-bold text-[#525252] font-['Noto_Serif_Bengali']">
                             ডিভাইস থেকে ছবি আপলোড করুন:
@@ -602,7 +785,6 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                           </button>
                         </div>
 
-                        {/* Option B: Direct Image URL */}
                         <div className="space-y-1.5">
                           <span className="text-[11px] font-bold text-[#525252] font-['Noto_Serif_Bengali']">
                             অথবা ছবির ওয়েব লিংক দিন:
@@ -617,7 +799,6 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         </div>
                       </div>
 
-                      {/* Primary Image Preview if available */}
                       {imageUrl && (
                         <div className="flex items-center gap-3 p-2 bg-white rounded-xs border border-[#ded8cb]">
                           <img
@@ -634,7 +815,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                               type="text"
                               value={imageCaption}
                               onChange={(e) => setImageCaption(e.target.value)}
-                              placeholder="ছবির ক্যাপশন লিখুন (যেমন: খরাজ মুখোপাধ্যায় ও স্ত্রী প্রতিভা মুখোপাধ্যায়...)"
+                              placeholder="ছবির ক্যাপশন লিখুন..."
                               className="w-full bg-[#fbf9f4] border border-[#ded8cb] rounded-xs px-2.5 py-1 text-xs text-[#1a1a1a] focus:outline-hidden focus:border-[#b91c1c]"
                             />
                           </div>
@@ -642,7 +823,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       )}
                     </div>
 
-                    {/* Multiple Additional Photos / Photo Gallery Section */}
+                    {/* Multiple Additional Photos Section */}
                     <div className="space-y-3 p-3.5 bg-[#fbf9f4] rounded-xs border border-[#ded8cb]">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
@@ -656,9 +837,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         </span>
                       </div>
 
-                      {/* Multi Upload & Add URL controls */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {/* Multi File Input */}
                         <div>
                           <input
                             ref={galleryFileInputRef}
@@ -678,7 +857,6 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                           </button>
                         </div>
 
-                        {/* URL Add */}
                         <div className="flex gap-1.5">
                           <input
                             type="url"
@@ -697,42 +875,209 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         </div>
                       </div>
 
-                      {/* Additional Images Thumbnail Gallery Grid */}
                       {additionalImages.length > 0 && (
-                        <div className="space-y-2 pt-1">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 pt-1">
+                          {additionalImages.map((img, idx) => (
+                            <div key={idx} className="relative group bg-white border border-[#ded8cb] rounded-xs p-1.5 shadow-2xs space-y-1">
+                              <img
+                                src={img.url}
+                                alt={img.alt || `Gallery Image ${idx + 1}`}
+                                className="w-full h-20 object-cover rounded-xs border border-[#ded8cb]"
+                              />
+                              <input
+                                type="text"
+                                value={img.caption}
+                                onChange={(e) => {
+                                  const updated = [...additionalImages];
+                                  updated[idx] = { ...updated[idx], caption: e.target.value, alt: e.target.value };
+                                  setAdditionalImages(updated);
+                                }}
+                                placeholder="ক্যাপশন দিন"
+                                className="w-full text-[10px] bg-[#fbf9f4] border border-[#ded8cb] rounded-xs px-1.5 py-0.5 focus:outline-hidden"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveGalleryImage(idx)}
+                                className="absolute top-2 right-2 p-1 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-md cursor-pointer transition-transform hover:scale-110"
+                                title="ছবি মুছুন"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* --- NEW SECTION 3: AUDIO VOICE NEWS UPLOAD, RECORD & DELETE --- */}
+                  <div className="space-y-4 bg-white p-4 sm:p-5 rounded-xs border border-[#ded8cb]">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#ded8cb] pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-xs bg-[#ecfdf5] text-[#059669]">
+                          <Mic className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black uppercase text-[#059669] tracking-wider font-['Noto_Serif_Bengali'] flex items-center gap-1.5">
+                            <span>৩. অডিও / ভয়েস সংবাদ বুলেটিন (Audio Voice Bulletin)</span>
+                            <span className="text-[10px] bg-[#dcfce7] text-[#15803d] px-1.5 py-0.2 rounded-xs font-bold">
+                              নতুন ফিচার
+                            </span>
+                          </h4>
+                          <p className="text-[11px] text-[#737373]">
+                            সংবাদের অডিও ভয়েস ফাইল আপলোড করুন, সরাসরি রেকর্ড করুন অথবা মুছে ফেলুন
+                          </p>
+                        </div>
+                      </div>
+
+                      <span className="text-[10px] bg-[#f3efe6] text-[#525252] font-mono px-2 py-0.5 rounded-xs border border-[#ded8cb]">
+                        MP3 / WAV / M4A / WEBM / OGG
+                      </span>
+                    </div>
+
+                    <div className="p-3.5 bg-[#fbf9f4] rounded-xs border border-[#ded8cb] space-y-3.5">
+                      {/* Hidden File Input for Audio */}
+                      <input
+                        ref={audioFileInputRef}
+                        type="file"
+                        accept="audio/*"
+                        onChange={handleAudioFileChange}
+                        className="hidden"
+                      />
+
+                      {/* 3 Upload/Record Options Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {/* Option 1: Upload from Device */}
+                        <div className="space-y-1.5">
                           <span className="text-[11px] font-bold text-[#525252] font-['Noto_Serif_Bengali'] block">
-                            সংযুক্ত অতিরিক্ত ছবির তালিকা:
+                            ১. ডিভাইস থেকে অডিও ফাইল আপলোড:
                           </span>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-                            {additionalImages.map((img, idx) => (
-                              <div key={idx} className="relative group bg-white border border-[#ded8cb] rounded-xs p-1.5 shadow-2xs space-y-1">
-                                <img
-                                  src={img.url}
-                                  alt={img.alt || `Gallery Image ${idx + 1}`}
-                                  className="w-full h-20 object-cover rounded-xs border border-[#ded8cb]"
-                                />
-                                <input
-                                  type="text"
-                                  value={img.caption}
-                                  onChange={(e) => {
-                                    const updated = [...additionalImages];
-                                    updated[idx] = { ...updated[idx], caption: e.target.value, alt: e.target.value };
-                                    setAdditionalImages(updated);
-                                  }}
-                                  placeholder="ক্যাপশন দিন"
-                                  className="w-full text-[10px] bg-[#fbf9f4] border border-[#ded8cb] rounded-xs px-1.5 py-0.5 focus:outline-hidden"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveGalleryImage(idx)}
-                                  className="absolute top-2 right-2 p-1 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-md cursor-pointer transition-transform hover:scale-110"
-                                  title="ছবি মুছুন"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </div>
-                            ))}
+                          <button
+                            type="button"
+                            onClick={() => audioFileInputRef.current?.click()}
+                            className="w-full py-2.5 px-3 bg-white hover:bg-[#ecfdf5] border-2 border-dashed border-[#a7f3d0] hover:border-[#059669] rounded-xs text-xs font-bold text-[#065f46] flex items-center justify-center gap-2 transition-colors cursor-pointer font-['Noto_Serif_Bengali']"
+                          >
+                            <Upload className="w-4 h-4 text-[#059669]" />
+                            <span>ফোন/পিসি থেকে অডিও বাছুন</span>
+                          </button>
+                        </div>
+
+                        {/* Option 2: Live Voice Recording via Microphone */}
+                        <div className="space-y-1.5">
+                          <span className="text-[11px] font-bold text-[#525252] font-['Noto_Serif_Bengali'] block">
+                            ২. সরাসরি ভয়েস রেকর্ড করুন:
+                          </span>
+                          {isRecording ? (
+                            <button
+                              type="button"
+                              onClick={stopVoiceRecording}
+                              className="w-full py-2.5 px-3 bg-[#b91c1c] hover:bg-[#991b1b] text-white rounded-xs text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer animate-pulse font-['Noto_Serif_Bengali'] shadow-xs"
+                            >
+                              <StopCircle className="w-4 h-4" />
+                              <span>রেকর্ড বন্ধ করুন ({recordingSeconds}s)</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={startVoiceRecording}
+                              className="w-full py-2.5 px-3 bg-white hover:bg-[#fef2f2] border-2 border-dashed border-[#fca5a5] hover:border-[#b91c1c] rounded-xs text-xs font-bold text-[#b91c1c] flex items-center justify-center gap-2 transition-colors cursor-pointer font-['Noto_Serif_Bengali']"
+                            >
+                              <Mic className="w-4 h-4 text-[#b91c1c]" />
+                              <span>মাইক্রোফোনে রেকর্ড শুরু</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Option 3: External Audio URL */}
+                        <div className="space-y-1.5">
+                          <span className="text-[11px] font-bold text-[#525252] font-['Noto_Serif_Bengali'] block">
+                            ৩. অথবা অডিও ওয়েব লিঙ্ক দিন:
+                          </span>
+                          <div className="flex gap-1">
+                            <input
+                              type="url"
+                              value={audioCustomUrlInput}
+                              onChange={(e) => setAudioCustomUrlInput(e.target.value)}
+                              placeholder="https://...audio.mp3"
+                              className="flex-1 bg-white border border-[#ded8cb] rounded-xs px-2 py-1 text-xs text-[#1a1a1a] font-mono focus:outline-hidden focus:border-[#059669]"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleAddAudioUrl}
+                              className="bg-[#059669] hover:bg-[#047857] text-white px-2.5 py-1 rounded-xs text-xs font-bold cursor-pointer shrink-0"
+                            >
+                              যোগ
+                            </button>
                           </div>
+                        </div>
+                      </div>
+
+                      {/* Audio Player Preview & DELETE Section */}
+                      {audioUrl ? (
+                        <div className="bg-white border-2 border-[#a7f3d0] rounded-xs p-3.5 space-y-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#e5e7eb] pb-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-xs bg-[#ecfdf5] text-[#059669] flex items-center justify-center">
+                                <Headphones className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <div className="text-xs font-bold text-[#065f46] font-['Noto_Serif_Bengali'] flex items-center gap-1.5">
+                                  <Check className="w-3.5 h-3.5 text-[#059669]" />
+                                  <span>ভয়েস সংবাদ বুলেটিন সংযুক্ত হয়েছে</span>
+                                </div>
+                                <div className="text-[11px] text-[#6b7280] font-mono">
+                                  {audioName || 'অডিও ফাইল'} {audioDuration > 0 ? `(${audioDuration} সেকেন্ড)` : ''}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* DELETE AUDIO BUTTON */}
+                            <button
+                              type="button"
+                              onClick={handleDeleteAudio}
+                              className="bg-[#fef2f2] hover:bg-[#b91c1c] text-[#b91c1c] hover:text-white border border-[#fca5a5] hover:border-[#b91c1c] px-3 py-1.5 rounded-xs text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer font-['Noto_Serif_Bengali'] shadow-2xs"
+                              title="সংযুক্ত অডিও ফাইলটি ডিলিট করুন"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>অডিও মুছুন / ডিলিট করুন</span>
+                            </button>
+                          </div>
+
+                          {/* Interactive Preview Player */}
+                          <div className="flex items-center gap-3 bg-[#f8f7f2] p-2.5 rounded-xs border border-[#ded8cb]">
+                            <audio
+                              ref={formAudioRef}
+                              src={audioUrl}
+                              onEnded={() => setIsPreviewPlaying(false)}
+                            />
+
+                            <button
+                              type="button"
+                              onClick={toggleFormAudioPreview}
+                              className="p-2 bg-[#059669] hover:bg-[#047857] text-white rounded-xs cursor-pointer flex items-center gap-1 text-xs font-bold shadow-xs shrink-0"
+                            >
+                              {isPreviewPlaying ? (
+                                <>
+                                  <Pause className="w-3.5 h-3.5" />
+                                  <span>থামুন</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="w-3.5 h-3.5" />
+                                  <span>প্লে করে শুনুন</span>
+                                </>
+                              )}
+                            </button>
+
+                            <div className="flex-1 text-[11px] text-[#525252] font-['Noto_Serif_Bengali']">
+                              {isPreviewPlaying ? 'অডিও প্রিভিউ চলছে...' : 'প্রকাশ করার পূর্বে অডিওটি প্লে করে যাচাই করে নিন।'}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-[#6b7280] font-['Noto_Serif_Bengali'] bg-white p-2.5 rounded-xs border border-dashed border-[#ded8cb] flex items-center gap-2">
+                          <Volume2 className="w-4 h-4 text-[#9ca3af]" />
+                          <span>(ঐচ্ছিক) কোনো অডিও ফাইল যোগ না করলে সিস্টেম স্বয়ংক্রিয় এআই ভয়েস রিডার ব্যবহার করবে।</span>
                         </div>
                       )}
                     </div>
@@ -742,7 +1087,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                   <div className="space-y-3 bg-white p-4 rounded-xs border border-[#ded8cb]">
                     <div className="flex items-center justify-between">
                       <h4 className="text-xs font-black uppercase text-[#b91c1c] tracking-wider font-['Noto_Serif_Bengali']">
-                        ৩. খবরের বিস্তারিত বিষয়বস্তু (প্রতিটি প্যারাগ্রাফ নতুন লাইনে লিখুন)
+                        ৪. খবরের বিস্তারিত বিষয়বস্তু (প্রতিটি প্যারাগ্রাফ নতুন লাইনে লিখুন)
                       </h4>
                       <span className="text-[11px] text-[#737373]">Enter দিয়ে প্যারা আলাদা করুন</span>
                     </div>
@@ -832,11 +1177,17 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                           )}
 
                           <div className="space-y-1 flex-1">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <span className="bg-[#fef2f2] text-[#991b1b] text-[10px] font-bold px-1.5 py-0.2 rounded-xs border border-[#fca5a5]">
                                 {art.category}
                               </span>
                               <span className="text-[11px] text-[#737373]">{art.publishedAt}</span>
+                              {art.audioUrl && (
+                                <span className="bg-[#ecfdf5] text-[#065f46] text-[10px] font-bold px-1.5 py-0.2 rounded-xs border border-[#a7f3d0] flex items-center gap-1">
+                                  <Mic className="w-2.5 h-2.5" />
+                                  <span>ভয়েস অডিও আছে</span>
+                                </span>
+                              )}
                               {isCurrent && (
                                 <span className="bg-[#1a1a1a] text-[#fbbf24] text-[10px] font-bold px-2 py-0.2 rounded-xs">
                                   ★ বর্তমানে প্রদর্শিত
@@ -880,6 +1231,18 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+            {/* Tab: Subscriber Database Management */}
+            {activeTab === 'subscribers' && (
+              <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+                <SubscriberManager
+                  subscribers={subscribers}
+                  onAddSubscriber={onAddSubscriber}
+                  onDeleteSubscriber={onDeleteSubscriber}
+                  onToggleStatus={onToggleSubscriberStatus}
+                />
               </div>
             )}
 

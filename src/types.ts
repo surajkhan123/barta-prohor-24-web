@@ -44,6 +44,8 @@ export interface NewsArticle {
     note: string;
   }[];
   audioDuration: number; // in seconds
+  audioUrl?: string; // Uploaded custom audio file or URL
+  audioName?: string; // Name of the uploaded audio file
   tags: string[];
 }
 
@@ -65,4 +67,17 @@ export interface RelatedStory {
   time: string;
   imageUrl?: string;
   badge?: string;
+}
+
+export interface Subscriber {
+  id: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  topics?: string[];
+  subscribedAt: string;
+  timestamp: number;
+  source: string;
+  status: 'active' | 'inactive';
+  notes?: string;
 }
