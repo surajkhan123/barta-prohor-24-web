@@ -46,6 +46,8 @@ export interface NewsArticle {
   audioDuration: number; // in seconds
   audioUrl?: string; // Uploaded custom audio file or URL
   audioName?: string; // Name of the uploaded audio file
+  videoUrl?: string; // YouTube, Facebook, or direct video file / MP4
+  videoCaption?: string; // Video description / credit
   tags: string[];
 }
 

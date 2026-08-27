@@ -30,10 +30,13 @@ import {
   StopCircle,
   Music,
   Headphones,
-  Users
+  Users,
+  Video
 } from 'lucide-react';
 import { NewsArticle, ArticleImage, Subscriber } from '../types';
 import { SubscriberManager } from './SubscriberManager';
+import { compressImageFile } from '../utils/imageCompressor';
+import { parseVideoUrl } from '../utils/videoHelper';
 
 interface AdminPanelModalProps {
   isOpen: boolean;
@@ -86,6 +89,13 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [audioDuration, setAudioDuration] = useState<number>(0);
   const [audioCustomUrlInput, setAudioCustomUrlInput] = useState<string>('');
   
+  // Video News State (YouTube, Facebook, Vimeo, MP4 direct)
+  const [videoUrl, setVideoUrl] = useState<string>('');
+  const [videoCaption, setVideoCaption] = useState<string>('');
+  const [videoCustomUrlInput, setVideoCustomUrlInput] = useState<string>('');
+  const [isProcessingMedia, setIsProcessingMedia] = useState<boolean>(false);
+  const videoFileInputRef = useRef<HTMLInputElement>(null);
+  
   // Live Voice Recording State
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
@@ -131,7 +141,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       sessionStorage.setItem('bp24_admin_logged', 'true');
       setAuthError('');
     } else {
-      setAuthError('ভুল পিন কোড! অনুগ্রহ করে আপনার ৪ সংখ্যার সঠিক পিন দিন');
+      setAuthError('ভুল পাসওয়ার্ড / পিন কোড! অনুগ্রহ করে সঠিক পাসওয়ার্ড লিখুন');
     }
   };
 
@@ -140,7 +150,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     if (newPinInput.length >= 4) {
       setAdminPin(newPinInput);
       localStorage.setItem('bp24_admin_pin', newPinInput);
-      setPinChangeSuccess('পিন কোড সফলভাবে পরিবর্তন করা হয়েছে!');
+      setPinChangeSuccess('পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে!');
       setNewPinInput('');
       setTimeout(() => setPinChangeSuccess(''), 3000);
     }
@@ -166,9 +176,15 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     setAudioName('');
     setAudioDuration(0);
     setAudioCustomUrlInput('');
+    setVideoUrl('');
+    setVideoCaption('');
+    setVideoCustomUrlInput('');
     setIsPreviewPlaying(false);
     if (audioFileInputRef.current) {
       audioFileInputRef.current.value = '';
+    }
+    if (videoFileInputRef.current) {
+      videoFileInputRef.current.value = '';
     }
     setLocation('কলকাতা');
     setAuthorName('বার্তা প্রহর ২৪ ডিজিটাল ডেস্ক');
@@ -181,8 +197,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const handleEditSelect = (art: NewsArticle) => {
     setEditingId(art.id);
     setTitle(art.title);
-    setSubtitle(art.subtitle);
-    setCategory(art.category);
+    setSubtitle(art.subtitle || '');
+    setCategory(art.category || 'বিনোদন');
     setImageUrl(art.featuredImage?.url || '');
     setImageCaption(art.featuredImage?.caption || '');
     setAdditionalImages(art.galleryImages || (art.secondaryImage ? [art.secondaryImage] : []));
@@ -190,55 +206,71 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     setAudioName(art.audioName || '');
     setAudioDuration(art.audioDuration || 0);
     setAudioCustomUrlInput(art.audioUrl && !art.audioUrl.startsWith('data:') ? art.audioUrl : '');
-    setLocation(art.location);
-    setAuthorName(art.author.name);
-    setParagraphsText(art.paragraphs.join('\n\n'));
+    setVideoUrl(art.videoUrl || '');
+    setVideoCaption(art.videoCaption || '');
+    setVideoCustomUrlInput(art.videoUrl && !art.videoUrl.startsWith('data:') ? art.videoUrl : '');
+    setLocation(art.location || 'কলকাতা');
+    setAuthorName(art.author?.name || 'বার্তা প্রহর ২৪ ডিজিটাল ডেস্ক');
+    setParagraphsText(art.paragraphs ? art.paragraphs.join('\n\n') : '');
     setIsBreaking(!!art.isBreaking);
-    setStatusBadgeText(art.statusBadge.text);
-    setStatusBadgeType(art.statusBadge.type);
+    setStatusBadgeText(art.statusBadge?.text || 'আপডেট: তথ্য যাচাইকৃত');
+    setStatusBadgeType(art.statusBadge?.type || 'safe');
     setActiveTab('create');
   };
 
-  // Handle local file upload for primary image
-  const handlePrimaryFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle local file upload for primary image with automatic smart compression
+  const handlePrimaryFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          setImageUrl(reader.result);
-          if (!imageCaption) {
-            setImageCaption(file.name.replace(/\.[^/.]+$/, ''));
-          }
+      setIsProcessingMedia(true);
+      try {
+        const compressedBase64 = await compressImageFile(file, 1200, 0.82);
+        setImageUrl(compressedBase64);
+        if (!imageCaption) {
+          setImageCaption(file.name.replace(/\.[^/.]+$/, ''));
         }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // Handle local file upload for multiple gallery images
-  const handleGalleryFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      Array.from(files).forEach((file: File) => {
+      } catch (err) {
+        console.error('Image compression error:', err);
+        // Fallback to FileReader
         const reader = new FileReader();
         reader.onloadend = () => {
           if (typeof reader.result === 'string') {
-            setAdditionalImages(prev => [
-              ...prev,
-              {
-                url: reader.result as string,
-                caption: file.name.replace(/\.[^/.]+$/, ''),
-                alt: file.name.replace(/\.[^/.]+$/, ''),
-                credit: 'সংগৃহীত চিত্র'
-              }
-            ]);
+            setImageUrl(reader.result);
           }
         };
         reader.readAsDataURL(file);
-      });
-      if (galleryFileInputRef.current) {
-        galleryFileInputRef.current.value = '';
+      } finally {
+        setIsProcessingMedia(false);
+      }
+    }
+  };
+
+  // Handle local file upload for multiple gallery images with smart compression
+  const handleGalleryFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setIsProcessingMedia(true);
+      try {
+        const fileList: File[] = Array.from(files);
+        for (const file of fileList) {
+          const compressed = await compressImageFile(file, 1000, 0.8);
+          setAdditionalImages(prev => [
+            ...prev,
+            {
+              url: compressed,
+              caption: file.name.replace(/\.[^/.]+$/, ''),
+              alt: file.name.replace(/\.[^/.]+$/, ''),
+              credit: 'সংগৃহীত চিত্র'
+            }
+          ]);
+        }
+      } catch (err) {
+        console.error('Gallery compression error:', err);
+      } finally {
+        setIsProcessingMedia(false);
+        if (galleryFileInputRef.current) {
+          galleryFileInputRef.current.value = '';
+        }
       }
     }
   };
@@ -261,6 +293,45 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
   const handleRemoveGalleryImage = (index: number) => {
     setAdditionalImages(prev => prev.filter((_, idx) => idx !== index));
+  };
+
+  // --- VIDEO MANAGEMENT HANDLERS ---
+  const handleVideoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Check file size (recommend under 40MB for direct file)
+      if (file.size > 50 * 1024 * 1024) {
+        alert('ভিডিও ফাইলের সাইজ ৫০MB-র চেয়ে বড়! দ্রুত লোডিংয়ের জন্য YouTube বা অনলাইন লিঙ্ক ব্যবহার করার পরামর্শ দেওয়া হচ্ছে।');
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          setVideoUrl(reader.result);
+          if (!videoCaption) {
+            setVideoCaption(file.name.replace(/\.[^/.]+$/, ''));
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleApplyVideoUrl = () => {
+    if (videoCustomUrlInput.trim()) {
+      setVideoUrl(videoCustomUrlInput.trim());
+      if (!videoCaption) {
+        setVideoCaption('সংবাদের এক্সক্লুসিভ ভিডিও রিপোর্ট');
+      }
+    }
+  };
+
+  const handleDeleteVideo = () => {
+    setVideoUrl('');
+    setVideoCaption('');
+    setVideoCustomUrlInput('');
+    if (videoFileInputRef.current) {
+      videoFileInputRef.current.value = '';
+    }
   };
 
   // --- AUDIO VOICE MANAGEMENT HANDLERS ---
@@ -422,6 +493,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       galleryImages: additionalImages.length > 0 ? additionalImages : undefined,
       audioUrl: audioUrl.trim() || undefined,
       audioName: audioName.trim() || undefined,
+      videoUrl: videoUrl.trim() || undefined,
+      videoCaption: videoCaption.trim() || undefined,
       paragraphs: paragraphs,
       keyHighlights: [
         'তাৎক্ষণিক সংবাদ আপডেট বার্তা প্রহর ২৪ ডিজিটালে প্রকাশিত।',
@@ -481,7 +554,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-[#a3a3a3] font-['Noto_Serif_Bengali']">
-                খবর প্রকাশ, অডিও ভয়েস বুলেটিন আপলোড, এডিট ও বিনামূল্যে হোস্টিং গাইড
+                খবর প্রকাশ, ভিডিও, অডিও ভয়েস বুলেটিন আপলোড, এডিট ও বিনামূল্যে হোস্টিং গাইড
               </p>
             </div>
           </div>
@@ -506,7 +579,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
             </div>
             <div className="max-w-md space-y-1">
               <h4 className="text-lg font-bold text-[#1a1a1a] font-['Noto_Serif_Bengali']">
-                নিউজ এডিটর পিন প্রবেশ করান
+                নিউজ এডিটর পাসওয়ার্ড প্রবেশ করান
               </h4>
               <p className="text-xs text-[#525252] font-['Noto_Serif_Bengali']">
                 সুরক্ষার জন্য শুধুমাত্র অনুমোদিত সম্পাদকদের জন্য এই ড্যাশবোর্ডটি সংরক্ষিত।
@@ -516,10 +589,10 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
             <form onSubmit={handleLogin} className="w-full max-w-xs space-y-3">
               <input
                 type="password"
-                maxLength={8}
+                maxLength={20}
                 value={pinInput}
                 onChange={(e) => setPinInput(e.target.value)}
-                placeholder="পিন কোড লিখুন (যেমন: 7780)"
+                placeholder="পাসওয়ার্ড / পিন লিখুন"
                 className="w-full text-center tracking-widest text-lg font-mono bg-white border-2 border-[#ded8cb] focus:border-[#b91c1c] p-2.5 rounded-xs focus:outline-hidden text-[#1a1a1a]"
                 autoFocus
               />
@@ -536,10 +609,6 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
               >
                 নিউজডেস্কে প্রবেশ করুন
               </button>
-
-              <div className="text-[11px] text-[#737373] bg-[#fbf9f4] p-2 rounded-xs border border-[#ded8cb] font-mono">
-                ডিফল্ট পিন কোড: <strong>7780</strong> অথবা <strong>2424</strong>
-              </div>
             </form>
           </div>
         ) : (
@@ -1083,11 +1152,142 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                     </div>
                   </div>
 
+                  {/* --- NEW SECTION 4: VIDEO NEWS (YouTube, Facebook, Vimeo, MP4 direct) --- */}
+                  <div className="space-y-4 bg-white p-4 sm:p-5 rounded-xs border border-[#ded8cb]">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#ded8cb] pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-xs bg-[#fef2f2] text-[#b91c1c]">
+                          <Video className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black uppercase text-[#b91c1c] tracking-wider font-['Noto_Serif_Bengali'] flex items-center gap-1.5">
+                            <span>৪. ভিডিও সংবাদ যুক্ত করুন (Video News / YouTube / Direct MP4)</span>
+                            <span className="text-[10px] bg-[#fee2e2] text-[#b91c1c] px-1.5 py-0.2 rounded-xs font-bold">
+                              নতুন
+                            </span>
+                          </h4>
+                          <p className="text-[11px] text-[#737373]">
+                            YouTube লিংক, Facebook ভিডিও, অথবা সরাসরি ভিডিও ফাইল যুক্ত করুন
+                          </p>
+                        </div>
+                      </div>
+
+                      <span className="text-[10px] bg-[#f3efe6] text-[#525252] font-mono px-2 py-0.5 rounded-xs border border-[#ded8cb]">
+                        YouTube / MP4 / FB / Vimeo
+                      </span>
+                    </div>
+
+                    <div className="p-3.5 bg-[#fbf9f4] rounded-xs border border-[#ded8cb] space-y-3.5">
+                      {/* Hidden Video File Input */}
+                      <input
+                        ref={videoFileInputRef}
+                        type="file"
+                        accept="video/*"
+                        onChange={handleVideoFileChange}
+                        className="hidden"
+                      />
+
+                      {/* Video Link and Upload inputs */}
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                        <div className="sm:col-span-8 flex gap-1.5">
+                          <input
+                            type="text"
+                            value={videoCustomUrlInput}
+                            onChange={(e) => setVideoCustomUrlInput(e.target.value)}
+                            placeholder="ইউটিউব বা ভিডিও লিঙ্ক দিন (উদাঃ https://youtu.be/... বা mp4 লিঙ্ক)"
+                            className="flex-1 bg-white border border-[#ded8cb] rounded-xs px-3 py-2 text-xs text-[#1a1a1a] font-mono focus:outline-hidden focus:border-[#b91c1c]"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleApplyVideoUrl}
+                            className="bg-[#b91c1c] hover:bg-[#991b1b] text-white px-3.5 py-2 rounded-xs text-xs font-bold cursor-pointer shrink-0 font-['Noto_Serif_Bengali']"
+                          >
+                            যুক্ত করুন
+                          </button>
+                        </div>
+
+                        <div className="sm:col-span-4">
+                          <button
+                            type="button"
+                            onClick={() => videoFileInputRef.current?.click()}
+                            className="w-full py-2 px-3 bg-white hover:bg-[#f3efe6] border border-[#ded8cb] hover:border-[#b91c1c] rounded-xs text-xs font-bold text-[#1a1a1a] flex items-center justify-center gap-2 transition-colors cursor-pointer font-['Noto_Serif_Bengali']"
+                          >
+                            <Upload className="w-3.5 h-3.5 text-[#b91c1c]" />
+                            <span>ডিভাইস থেকে ভিডিও আপলোড</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Live Video Preview Box if videoUrl is set */}
+                      {videoUrl ? (
+                        <div className="space-y-3 p-3 bg-white rounded-xs border-2 border-[#b91c1c]/40">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full bg-[#10b981] animate-ping" />
+                              <span className="text-xs font-bold text-[#1a1a1a] font-['Noto_Serif_Bengali']">
+                                ভিডিও সফলভাবে সংযুক্ত হয়েছে
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={handleDeleteVideo}
+                              className="text-xs bg-[#fef2f2] hover:bg-[#b91c1c] text-[#b91c1c] hover:text-white px-2.5 py-1 rounded-xs border border-[#fca5a5] flex items-center gap-1 transition-colors cursor-pointer font-['Noto_Serif_Bengali']"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>ভিডিও মুছুন</span>
+                            </button>
+                          </div>
+
+                          {/* Responsive 16:9 Live Preview */}
+                          <div className="relative w-full aspect-video max-h-72 bg-black rounded-xs overflow-hidden border border-[#ded8cb] flex items-center justify-center">
+                            {parseVideoUrl(videoUrl)?.isIframe ? (
+                              <iframe
+                                src={parseVideoUrl(videoUrl)?.embedUrl}
+                                title="Video Preview"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                                className="w-full h-full border-0"
+                              />
+                            ) : (
+                              <video
+                                src={videoUrl}
+                                controls
+                                playsInline
+                                className="w-full h-full object-contain"
+                              >
+                                আপনার ব্রাউজার ভিডিও প্লে করতে পারছে না।
+                              </video>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-[#1a1a1a] mb-1 font-['Noto_Serif_Bengali']">
+                              ভিডিও বিবরণ বা ক্যাপশন (Video Caption)
+                            </label>
+                            <input
+                              type="text"
+                              value={videoCaption}
+                              onChange={(e) => setVideoCaption(e.target.value)}
+                              placeholder="ভিডিও সম্পর্কে সংক্ষিপ্ত বিবরণ বা ক্রেডিট লিখুন..."
+                              className="w-full bg-[#fbf9f4] border border-[#ded8cb] rounded-xs px-3 py-1.5 text-xs text-[#1a1a1a] focus:outline-hidden focus:border-[#b91c1c]"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-[#6b7280] font-['Noto_Serif_Bengali'] bg-white p-2.5 rounded-xs border border-dashed border-[#ded8cb] flex items-center gap-2">
+                          <Video className="w-4 h-4 text-[#9ca3af]" />
+                          <span>(ঐচ্ছিক) সংবাদে কোনো ভিডিও থাকলে এখানে YouTube লিংক বা MP4 যুক্ত করুন, যা সরাসরি আর্টিকেলে মোবাইল-রেসপন্সিভ প্লেয়ারে চলবে।</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Article Content */}
                   <div className="space-y-3 bg-white p-4 rounded-xs border border-[#ded8cb]">
                     <div className="flex items-center justify-between">
                       <h4 className="text-xs font-black uppercase text-[#b91c1c] tracking-wider font-['Noto_Serif_Bengali']">
-                        ৪. খবরের বিস্তারিত বিষয়বস্তু (প্রতিটি প্যারাগ্রাফ নতুন লাইনে লিখুন)
+                        ৫. খবরের বিস্তারিত বিষয়বস্তু (প্রতিটি প্যারাগ্রাফ নতুন লাইনে লিখুন)
                       </h4>
                       <span className="text-[11px] text-[#737373]">Enter দিয়ে প্যারা আলাদা করুন</span>
                     </div>
@@ -1185,7 +1385,13 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                               {art.audioUrl && (
                                 <span className="bg-[#ecfdf5] text-[#065f46] text-[10px] font-bold px-1.5 py-0.2 rounded-xs border border-[#a7f3d0] flex items-center gap-1">
                                   <Mic className="w-2.5 h-2.5" />
-                                  <span>ভয়েস অডিও আছে</span>
+                                  <span>অডিও আছে</span>
+                                </span>
+                              )}
+                              {art.videoUrl && (
+                                <span className="bg-[#eff6ff] text-[#1e40af] text-[10px] font-bold px-1.5 py-0.2 rounded-xs border border-[#bfdbfe] flex items-center gap-1">
+                                  <Video className="w-2.5 h-2.5" />
+                                  <span>ভিডিও আছে</span>
                                 </span>
                               )}
                               {isCurrent && (

@@ -17,9 +17,11 @@ import {
   Heart,
   ChevronLeft,
   ChevronRight,
-  Layers
+  Layers,
+  Sparkles
 } from 'lucide-react';
 import { NewsArticle } from '../types';
+import { getCategoryFallbackImage } from '../utils/imageCompressor';
 
 interface ArticleHeroProps {
   article: NewsArticle;
@@ -36,14 +38,27 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
 }) => {
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const [imgLoadFailed, setImgLoadFailed] = useState(false);
+
+  // Reliable category-based fallback image if none provided or if image fails to load
+  const categoryFallback = getCategoryFallbackImage(article.category);
+  
+  const effectiveFeaturedImage = (article.featuredImage && article.featuredImage.url && !imgLoadFailed)
+    ? article.featuredImage
+    : {
+        url: categoryFallback.url,
+        caption: article.featuredImage?.caption || categoryFallback.caption,
+        credit: article.featuredImage?.credit || categoryFallback.credit,
+        alt: article.title
+      };
 
   // Combine featured image and any gallery images
   const allImages = [
-    ...(article.featuredImage ? [article.featuredImage] : []),
+    effectiveFeaturedImage,
     ...(article.galleryImages || [])
   ];
 
-  const currentPhoto = allImages[selectedPhotoIndex] || article.featuredImage;
+  const currentPhoto = allImages[selectedPhotoIndex] || effectiveFeaturedImage;
 
   const handleNextPhoto = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -65,7 +80,7 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#ded8cb] pb-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="bg-[#b91c1c] text-white font-extrabold text-xs px-2.5 py-0.5 rounded-xs tracking-wider font-['Noto_Serif_Bengali']">
-            {article.category}
+            {article.category || 'তাজা খবর'}
           </span>
           {article.subcategory && (
             <span className="bg-white text-[#1a1a1a] border border-[#ded8cb] font-bold text-xs px-2 py-0.5 rounded-xs">
@@ -74,7 +89,7 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
           )}
           <span className="bg-[#ecfdf5] text-[#065f46] border border-[#a7f3d0] font-medium text-xs px-2 py-0.5 rounded-xs flex items-center gap-1">
             <ShieldCheck className="w-3.5 h-3.5 text-[#059669]" />
-            <span>পরিবারের সূত্র: দুজনেই সুরক্ষিত</span>
+            <span>{article.statusBadge?.text || 'তথ্য যাচাইকৃত ও নির্ভরযোগ্য'}</span>
           </span>
         </div>
 
@@ -108,9 +123,11 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
       </h1>
 
       {/* Subtitle / Lead Summary with Editorial Pullout Styling */}
-      <p className="text-base sm:text-lg lg:text-xl text-[#262626] leading-relaxed font-normal border-l-4 border-[#b91c1c] pl-4 py-2.5 bg-[#f3efe6] rounded-r-xs font-['Noto_Serif_Bengali']">
-        {article.subtitle}
-      </p>
+      {article.subtitle && (
+        <p className="text-base sm:text-lg lg:text-xl text-[#262626] leading-relaxed font-normal border-l-4 border-[#b91c1c] pl-4 py-2.5 bg-[#f3efe6] rounded-r-xs font-['Noto_Serif_Bengali']">
+          {article.subtitle}
+        </p>
+      )}
 
       {/* Author & Timestamp Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[#525252] py-2 border-y border-[#ded8cb]">
@@ -119,22 +136,22 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
             BP
           </div>
           <div>
-            <div className="font-bold text-[#1a1a1a]">{article.author.name}</div>
-            <div className="text-[#737373] text-[11px]">{article.author.role}</div>
+            <div className="font-bold text-[#1a1a1a]">{article.author?.name || 'বার্তা প্রহর ২৪ ডিজিটাল ডেস্ক'}</div>
+            <div className="text-[#737373] text-[11px]">{article.author?.role || 'চিফ করেসপন্ডেন্ট'}</div>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-[#525252]">
           <div className="flex items-center gap-1">
             <Clock className="w-3.5 h-3.5 text-[#737373]" />
-            <span>প্রকাশিত: {article.publishedAt}</span>
+            <span>প্রকাশিত: {article.publishedAt || 'আজ'}</span>
           </div>
           <div className="flex items-center gap-1">
             <MapPin className="w-3.5 h-3.5 text-[#b91c1c]" />
-            <span>{article.location}</span>
+            <span>{article.location || 'কলকাতা'}</span>
           </div>
           <div className="flex items-center gap-1 font-semibold text-[#1a1a1a] bg-white border border-[#ded8cb] px-2 py-0.5 rounded-xs">
-            <span>{article.readTime}</span>
+            <span>{article.readTime || '২ মিনিট পাঠ'}</span>
           </div>
         </div>
       </div>
@@ -148,22 +165,25 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
             setIsPhotoModalOpen(true);
           }}
         >
-          {/* Main Photo Layout */}
-          <div className="relative min-h-[300px] sm:min-h-[420px] lg:min-h-[460px] flex items-center justify-center bg-gradient-to-b from-[#262626] to-[#121212]">
-            {article.featuredImage?.url && (
-              <img
-                src={article.featuredImage.url}
-                alt={article.featuredImage.alt}
-                referrerPolicy="no-referrer"
-                className="w-full h-auto max-h-[520px] object-contain sm:object-cover mx-auto transition-transform duration-300 group-hover:scale-[1.01]"
-              />
-            )}
+          {/* Main Photo Layout with absolute fallback & auto-recovery */}
+          <div className="relative min-h-[260px] sm:min-h-[380px] lg:min-h-[440px] flex items-center justify-center bg-[#18181b]">
+            <img
+              src={effectiveFeaturedImage.url}
+              alt={effectiveFeaturedImage.alt || article.title}
+              referrerPolicy="no-referrer"
+              onError={() => {
+                if (!imgLoadFailed) {
+                  setImgLoadFailed(true);
+                }
+              }}
+              className="w-full h-auto max-h-[520px] object-cover sm:object-contain mx-auto transition-transform duration-300 group-hover:scale-[1.01]"
+            />
 
             {/* Editorial overlay badge */}
             <div className="absolute top-3 left-3 flex flex-wrap items-center gap-2">
               <span className="bg-[#b91c1c] text-white text-[11px] font-bold px-2.5 py-1 rounded-xs flex items-center gap-1.5 shadow-md font-['Noto_Serif_Bengali']">
                 <Camera className="w-3.5 h-3.5" />
-                <span>{article.featuredImage?.caption || 'সংবাদের এক্সক্লুসিভ ছবি'}</span>
+                <span>{effectiveFeaturedImage.caption || 'সংবাদের বিশেষ চিত্র'}</span>
               </span>
               {allImages.length > 1 && (
                 <span className="bg-[#1d4ed8] text-white text-[11px] font-bold px-2.5 py-1 rounded-xs flex items-center gap-1 shadow-md">
@@ -204,6 +224,9 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
                   src={img.url}
                   alt={img.alt || `Photo ${idx + 1}`}
                   referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
                   className="w-14 h-10 sm:w-16 sm:h-11 object-cover"
                 />
               </button>
@@ -215,11 +238,11 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
         <figcaption className="p-3.5 sm:p-4 bg-[#fbf9f4] border-t border-[#ded8cb] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
           <div className="text-[#262626] font-['Noto_Serif_Bengali'] leading-relaxed">
             <strong className="text-[#b91c1c] font-bold mr-1.5">[বিশেষ প্রতিবেদন]</strong>
-            {article.featuredImage?.caption || 'অভিনেতা খরাজ মুখোপাধ্যায় ও তাঁর স্ত্রী প্রতিভা মুখোপাধ্যায়।'}
+            {effectiveFeaturedImage.caption || article.title}
           </div>
-          {article.featuredImage?.credit && (
+          {effectiveFeaturedImage.credit && (
             <div className="shrink-0 text-[#737373] text-[11px] font-mono border-t sm:border-t-0 sm:border-l border-[#ded8cb] pt-1 sm:pt-0 sm:pl-3">
-              {article.featuredImage.credit}
+              {effectiveFeaturedImage.credit}
             </div>
           )}
         </figcaption>
@@ -234,29 +257,31 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
               <span>BARTA PROHOR 24 স্পেশাল কভারেজ</span>
             </div>
             <h3 className="text-lg sm:text-xl font-bold text-white font-['Noto_Serif_Bengali'] leading-snug">
-              নেপালে শুটিং ও বন্যা: খরাজ মুখোপাধ্যায়ের সুস্থতার বার্তা
+              {article.title}
             </h3>
             <p className="text-[#d4d4d4] text-xs sm:text-sm leading-relaxed max-w-xl">
-              নতুন বাংলা ছবির আউটডোর শুটিংয়ে স্ত্রী প্রতিভা মুখোপাধ্যায়কে নিয়ে কাঠমান্ডু গিয়েছিলেন প্রবীণ অভিনেতা। পাহাড়ি অঞ্চলে হড়পা বানের মধ্যেও দুজনেই সম্পূর্ণ সুরক্ষিত রয়েছেন।
+              {article.subtitle || (article.paragraphs && article.paragraphs[0]) || 'তাজা ঘটনার সরাসরি আপডেট ও বিশেষ বিশ্লেষণ।'}
             </p>
             <div className="pt-1 flex flex-wrap items-center gap-2">
               <span className="bg-[#262626] border border-[#404040] text-[#fcd34d] text-xs px-2.5 py-1 rounded-xs font-medium">
-                ⚠️ পাহাড়ি সড়কপথে ধস ও যোগাযোগ ব্যাহত
+                📍 {article.location || 'কলকাতা'} ব্যুরো ডেস্ক
               </span>
               <span className="bg-[#064e3b] border border-[#059669] text-[#6ee7b7] text-xs px-2.5 py-1 rounded-xs font-medium">
-                🛡️ হোটেল ও নিরাপদ স্থানে সুরক্ষিত অবস্থান
+                🛡️ {article.statusBadge?.text || 'তথ্য যাচাইকৃত প্রতিবেদন'}
               </span>
             </div>
           </div>
 
           <div className="shrink-0 w-full md:w-56 bg-[#262626] border border-[#404040] p-3.5 rounded-xs text-center space-y-2">
             <div className="w-10 h-10 mx-auto rounded-full bg-[#1a1a1a] text-[#f87171] flex items-center justify-center font-bold text-base border border-[#b91c1c]">
-              🎭
+              <Sparkles className="w-5 h-5 text-[#f87171]" />
             </div>
-            <h4 className="text-white font-bold text-sm font-['Noto_Serif_Bengali']">খরাজ মুখোপাধ্যায়</h4>
-            <p className="text-xs text-[#a3a3a3]">বিশিষ্ট অভিনেতা ও নাট্যব্যক্তিত্ব</p>
+            <h4 className="text-white font-bold text-sm font-['Noto_Serif_Bengali']">
+              {article.category || 'সংবাদ বিভাগ'}
+            </h4>
+            <p className="text-xs text-[#a3a3a3]">{article.author?.name || 'ডিজিটাল ডেস্ক'}</p>
             <div className="text-[11px] bg-[#1a1a1a] text-[#fbbf24] px-2 py-1 rounded-xs border border-[#333333] font-['Noto_Serif_Bengali']">
-              সহধর্মিণী: প্রতিভা মুখোপাধ্যায়
+              আপডেট: {article.publishedAt || 'আজকের সংবাদ'}
             </div>
           </div>
         </div>
@@ -278,7 +303,7 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
             <div className="flex items-center justify-between p-3.5 bg-[#121212] border-b border-[#333333]">
               <div className="flex items-center gap-2">
                 <Camera className="w-4 h-4 text-[#b91c1c]" />
-                <h4 className="font-bold text-sm font-['Noto_Serif_Bengali']">
+                <h4 className="font-bold text-sm font-['Noto_Serif_Bengali'] truncate max-w-md">
                   {currentPhoto.caption || article.title}
                 </h4>
                 {allImages.length > 1 && (
@@ -328,7 +353,7 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
 
             <div className="p-4 bg-[#1a1a1a] border-t border-[#333333] space-y-1">
               <p className="text-xs sm:text-sm text-[#e5e5e5] font-['Noto_Serif_Bengali']">
-                {currentPhoto.caption}
+                {currentPhoto.caption || article.title}
               </p>
               <div className="text-[11px] text-[#a3a3a3] font-mono">
                 {currentPhoto.credit || 'BARTA PROHOR 24 ডিজিটাল ডেস্ক'}
