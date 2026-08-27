@@ -4,7 +4,6 @@ import {
   Search, 
   Bell, 
   Share2, 
-  Globe, 
   Menu, 
   X, 
   Radio, 
@@ -38,6 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState('বিনোদন');
   const [subscribedToast, setSubscribedToast] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
     // Format Bengali current date
@@ -59,6 +59,19 @@ export const Header: React.FC<HeaderProps> = ({
     setCurrentDate(`${dayName}, ${dateNum} ${monthName} ${yearNum}`);
   }, []);
 
+  // Track scroll position to collapse header on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 80) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const categories = [
     { name: 'প্রচ্ছদ', slug: 'home' },
     { name: 'বিনোদন', slug: 'entertainment', hot: true },
@@ -71,8 +84,8 @@ export const Header: React.FC<HeaderProps> = ({
   ];
 
   return (
-    <header id="main-header" className="w-full bg-[#f8f7f2] border-b border-[#ded8cb] sticky top-0 z-40">
-      {/* Top Utility Dateline Bar */}
+    <header id="main-header" className="w-full bg-[#f8f7f2] border-b border-[#ded8cb]">
+      {/* Top Utility Dateline Bar (Scrolls with page) */}
       <div className="bg-[#1a1a1a] text-[#d4d4d4] text-xs py-1 px-4 sm:px-8 border-b border-[#2d2d2d]">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-4">
@@ -128,8 +141,8 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Main Newspaper Masthead Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-3 flex flex-col md:flex-row items-center justify-between gap-3">
+      {/* Main Newspaper Masthead Section (Scrolls naturally away, free screen space) */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-3.5 flex flex-col md:flex-row items-center justify-between gap-3">
         {/* Left edition info (desktop) */}
         <div className="hidden lg:flex flex-col text-[11px] text-[#525252] space-y-0.5">
           <span className="font-bold text-[#1a1a1a]">কলকাতা ও ঢাকা সংস্করণ</span>
@@ -220,37 +233,103 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Classic Double-Ruled Categories Navigation Bar */}
-      <nav className="bg-[#f3efe6] border-y-2 border-[#1a1a1a] hidden lg:block">
-        <div className="max-w-7xl mx-auto px-8 flex items-center justify-between">
-          <ul className="flex items-center space-x-1 text-xs font-bold py-1">
-            {categories.map((cat) => (
-              <li key={cat.slug}>
+      {/* Sleek, Compact Sticky Navigation Bar (Consumes only ~40px on scroll!) */}
+      <nav className={`w-full transition-all duration-200 z-40 bg-[#f3efe6] border-y-2 border-[#1a1a1a] ${
+        isScrolled 
+          ? 'sticky top-0 shadow-md bg-[#f3efe6]/95 backdrop-blur-xs py-0.5' 
+          : 'relative py-1 hidden lg:block'
+      }`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 flex items-center justify-between">
+          {/* Left section in sticky mode: Show compact mini logo & mobile menu */}
+          <div className="flex items-center gap-3">
+            {/* Mobile menu trigger when scrolled */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="lg:hidden p-1 text-[#1a1a1a] hover:bg-[#eae5db] rounded-xs transition-colors"
+              aria-label="মেনু"
+            >
+              {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+            </button>
+
+            {isScrolled && (
+              <div 
+                className="flex items-center gap-2 cursor-pointer pr-2 border-r border-[#ded8cb]"
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                title="উপরে যান"
+              >
+                <div className="bg-[#b91c1c] text-white px-2 py-0.5 rounded-xs text-xs font-black font-['Noto_Serif_Bengali'] flex items-center gap-1">
+                  <span>বার্তা প্রহর</span>
+                  <span className="bg-[#111827] text-[#fbbf24] px-1 rounded-xs font-sans text-[11px] italic font-black">24</span>
+                </div>
+              </div>
+            )}
+
+            {/* Category tabs */}
+            <ul className="hidden lg:flex items-center space-x-1 text-xs font-bold">
+              {categories.map((cat) => (
+                <li key={cat.slug}>
+                  <button
+                    id={`cat-nav-${cat.slug}`}
+                    onClick={() => setActiveCategory(cat.name)}
+                    className={`px-2.5 py-1 rounded-xs transition-all duration-150 flex items-center gap-1.5 cursor-pointer font-['Noto_Serif_Bengali'] ${
+                      activeCategory === cat.name
+                        ? 'bg-[#b91c1c] text-white shadow-xs'
+                        : 'text-[#1a1a1a] hover:bg-[#e4ded2]'
+                    }`}
+                  >
+                    {cat.hot && <Flame className="w-3 h-3 text-[#fbbf24] fill-[#fbbf24]" />}
+                    {cat.isLive && <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping mr-0.5" />}
+                    <span>{cat.name}</span>
+                    {cat.alert && (
+                      <span className="bg-[#fef3c7] text-[#92400e] border border-[#f59e0b] text-[9px] font-bold px-1 py-0.1 rounded-xs">
+                        সতর্কবার্তা
+                      </span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Right section: Special coverage badge or compact action buttons when scrolled */}
+          <div className="flex items-center gap-2 text-xs font-bold font-['Noto_Serif_Bengali']">
+            {isScrolled ? (
+              <div className="flex items-center gap-1.5">
                 <button
-                  id={`cat-nav-${cat.slug}`}
-                  onClick={() => setActiveCategory(cat.name)}
-                  className={`px-3 py-1 rounded-xs transition-all duration-150 flex items-center gap-1.5 cursor-pointer font-['Noto_Serif_Bengali'] ${
-                    activeCategory === cat.name
-                      ? 'bg-[#b91c1c] text-white shadow-xs'
-                      : 'text-[#1a1a1a] hover:bg-[#e4ded2]'
-                  }`}
+                  onClick={onQRClick}
+                  className="bg-[#1a1a1a] text-[#fbbf24] hover:bg-[#333] px-2 py-0.5 rounded-xs text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                  title="কিউআর কোড"
                 >
-                  {cat.hot && <Flame className="w-3 h-3 text-[#fbbf24] fill-[#fbbf24]" />}
-                  {cat.isLive && <span className="w-2 h-2 rounded-full bg-white animate-ping mr-0.5" />}
-                  <span>{cat.name}</span>
-                  {cat.alert && (
-                    <span className="bg-[#fef3c7] text-[#92400e] border border-[#f59e0b] text-[9px] font-bold px-1 py-0.1 rounded-xs">
-                      সতর্কবার্তা
+                  <QrCode className="w-3 h-3" />
+                  <span className="hidden sm:inline">QR</span>
+                </button>
+                <button
+                  onClick={onAdminClick}
+                  className="bg-[#b91c1c] text-white hover:bg-[#991b1b] px-2 py-0.5 rounded-xs text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                  title="অ্যাডমিন"
+                >
+                  <Lock className="w-3 h-3" />
+                  <span className="hidden sm:inline">নিউজডেস্ক</span>
+                </button>
+                <button
+                  onClick={onBookmarkClick}
+                  className="p-1 text-[#1a1a1a] hover:bg-[#eae5db] rounded-xs relative border border-[#ded8cb] bg-white cursor-pointer"
+                  title="বুকমার্ক"
+                >
+                  <Bookmark className="w-3.5 h-3.5" />
+                  {bookmarkedCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-[#b91c1c] text-white text-[9px] w-3.5 h-3.5 rounded-full flex items-center justify-center font-bold">
+                      {bookmarkedCount}
                     </span>
                   )}
                 </button>
-              </li>
-            ))}
-          </ul>
-
-          <div className="flex items-center gap-2 text-xs font-bold text-[#b91c1c] font-['Noto_Serif_Bengali']">
-            <span className="w-2 h-2 rounded-full bg-[#b91c1c] animate-pulse"></span>
-            <span>বিশেষ কভারেজ: নেপাল পাহাড়ি বন্যা পরিস্থিতি</span>
+              </div>
+            ) : (
+              <div className="hidden lg:flex items-center gap-2 text-[#b91c1c]">
+                <span className="w-2 h-2 rounded-full bg-[#b91c1c] animate-pulse"></span>
+                <span>বিশেষ কভারেজ: নেপাল পাহাড়ি বন্যা পরিস্থিতি</span>
+              </div>
+            )}
           </div>
         </div>
       </nav>
