@@ -31,12 +31,25 @@ import {
   Music,
   Headphones,
   Users,
-  Video
+  Video,
+  Eye,
+  EyeOff,
+  Database,
+  ShieldCheck,
+  Save,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { NewsArticle, ArticleImage, Subscriber } from '../types';
 import { SubscriberManager } from './SubscriberManager';
 import { compressImageFile } from '../utils/imageCompressor';
 import { parseVideoUrl } from '../utils/videoHelper';
+import { 
+  getStoredAdminPassword, 
+  verifyAdminPassword, 
+  updateStoredAdminPassword, 
+  getPasswordLastUpdated 
+} from '../data/authStore';
 
 interface AdminPanelModalProps {
   isOpen: boolean;
@@ -120,12 +133,20 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const galleryFileInputRef = useRef<HTMLInputElement>(null);
   const audioFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Admin PIN configuration (Default: 7780)
+  // Admin Password configuration from persistent database/storage
   const [adminPin, setAdminPin] = useState<string>(() => {
-    return localStorage.getItem('bp24_admin_pin') || '7780';
+    return getStoredAdminPassword();
   });
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [currentPinCheck, setCurrentPinCheck] = useState('');
   const [newPinInput, setNewPinInput] = useState('');
+  const [confirmPinInput, setConfirmPinInput] = useState('');
   const [pinChangeSuccess, setPinChangeSuccess] = useState('');
+  const [pinChangeError, setPinChangeError] = useState('');
+  const [lastPasswordUpdated, setLastPasswordUpdated] = useState<string | null>(() => {
+    return getPasswordLastUpdated();
+  });
 
   useEffect(() => {
     // Check if session authenticated
@@ -136,23 +157,43 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pinInput === adminPin || pinInput === '7780' || pinInput === '2424') {
+    if (verifyAdminPassword(pinInput)) {
       setIsAuthenticated(true);
       sessionStorage.setItem('bp24_admin_logged', 'true');
       setAuthError('');
     } else {
-      setAuthError('ভুল পাসওয়ার্ড / পিন কোড! অনুগ্রহ করে সঠিক পাসওয়ার্ড লিখুন');
+      setAuthError('ভুল পাসওয়ার্ড! অনুগ্রহ করে আপনার সঠিক অ্যাডমিন পাসওয়ার্ড লিখুন।');
     }
   };
 
-  const handleUpdatePin = (e: React.FormEvent) => {
+  const handleUpdatePassword = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPinInput.length >= 4) {
-      setAdminPin(newPinInput);
-      localStorage.setItem('bp24_admin_pin', newPinInput);
-      setPinChangeSuccess('পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে!');
+    setPinChangeError('');
+    setPinChangeSuccess('');
+
+    // Check if new password is at least 4 characters
+    if (newPinInput.trim().length < 4) {
+      setPinChangeError('নতুন পাসওয়ার্ড কমপক্ষে ৪ অক্ষরের বা সংখ্যার হতে হবে!');
+      return;
+    }
+
+    // Check if confirm password matches
+    if (newPinInput.trim() !== confirmPinInput.trim()) {
+      setPinChangeError('নতুন পাসওয়ার্ড এবং নিশ্চিতকরণ পাসওয়ার্ড মেলেনি!');
+      return;
+    }
+
+    const result = updateStoredAdminPassword(newPinInput.trim());
+    if (result.success) {
+      setAdminPin(newPinInput.trim());
+      setPinChangeSuccess('নতুন পাসওয়ার্ড সফলভাবে ডেটাবেজে সংরক্ষিত হয়েছে! পরবর্তী লগইনের জন্য এই নতুন পাসওয়ার্ডটি মনে রাখুন।');
+      setLastPasswordUpdated(getPasswordLastUpdated());
       setNewPinInput('');
-      setTimeout(() => setPinChangeSuccess(''), 3000);
+      setConfirmPinInput('');
+      setCurrentPinCheck('');
+      setTimeout(() => setPinChangeSuccess(''), 6000);
+    } else {
+      setPinChangeError(result.message);
     }
   };
 
@@ -587,28 +628,45 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
             </div>
 
             <form onSubmit={handleLogin} className="w-full max-w-xs space-y-3">
-              <input
-                type="password"
-                maxLength={20}
-                value={pinInput}
-                onChange={(e) => setPinInput(e.target.value)}
-                placeholder="পাসওয়ার্ড / পিন লিখুন"
-                className="w-full text-center tracking-widest text-lg font-mono bg-white border-2 border-[#ded8cb] focus:border-[#b91c1c] p-2.5 rounded-xs focus:outline-hidden text-[#1a1a1a]"
-                autoFocus
-              />
+              <div className="relative">
+                <input
+                  type={showLoginPassword ? 'text' : 'password'}
+                  maxLength={30}
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value)}
+                  placeholder="পাসওয়ার্ড লিখুন"
+                  className="w-full text-center tracking-widest text-base font-mono bg-white border-2 border-[#ded8cb] focus:border-[#b91c1c] p-2.5 pr-10 rounded-xs focus:outline-hidden text-[#1a1a1a]"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowLoginPassword(!showLoginPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#737373] hover:text-[#1a1a1a] p-1 cursor-pointer"
+                  title={showLoginPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
+                >
+                  {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
 
               {authError && (
-                <p className="text-xs text-[#b91c1c] font-bold font-['Noto_Serif_Bengali']">
-                  {authError}
-                </p>
+                <div className="p-2 bg-[#fef2f2] border border-[#fca5a5] rounded-xs text-[#b91c1c] text-xs font-bold font-['Noto_Serif_Bengali'] flex items-center gap-1.5 justify-center">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{authError}</span>
+                </div>
               )}
 
               <button
                 type="submit"
-                className="w-full bg-[#b91c1c] hover:bg-[#991b1b] text-white py-2.5 px-4 rounded-xs font-bold text-xs cursor-pointer border border-[#7f1d1d] font-['Noto_Serif_Bengali']"
+                className="w-full bg-[#b91c1c] hover:bg-[#991b1b] text-white py-2.5 px-4 rounded-xs font-bold text-xs cursor-pointer border border-[#7f1d1d] font-['Noto_Serif_Bengali'] flex items-center justify-center gap-1.5 shadow-xs"
               >
-                নিউজডেস্কে প্রবেশ করুন
+                <Lock className="w-3.5 h-3.5" />
+                <span>নিউজডেস্কে প্রবেশ করুন</span>
               </button>
+
+              <div className="text-[11px] text-[#737373] flex items-center justify-center gap-1 pt-1 font-['Noto_Serif_Bengali']">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#059669]" />
+                <span>ডেটাবেজ সংরক্ষিত অ্যাডমিন সিস্টেম</span>
+              </div>
             </form>
           </div>
         ) : (
@@ -1520,53 +1578,133 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
             {/* Tab 4: Password & Security Settings */}
             {activeTab === 'settings' && (
-              <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4 font-['Noto_Serif_Bengali']">
-                <div className="bg-white p-5 rounded-xs border border-[#ded8cb] space-y-4 max-w-md mx-auto">
-                  <div className="flex items-center gap-3 border-b border-[#ded8cb] pb-3">
-                    <div className="w-10 h-10 rounded-full bg-[#fef2f2] text-[#b91c1c] flex items-center justify-center border border-[#fca5a5]">
-                      <Key className="w-5 h-5" />
+              <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-5 font-['Noto_Serif_Bengali']">
+                <div className="bg-white p-5 sm:p-6 rounded-xs border border-[#ded8cb] space-y-4 max-w-lg mx-auto shadow-xs">
+                  {/* Header */}
+                  <div className="flex items-center justify-between border-b border-[#ded8cb] pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-[#fef2f2] text-[#b91c1c] flex items-center justify-center border border-[#fca5a5]">
+                        <Key className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm sm:text-base text-[#1a1a1a]">
+                          অ্যাডমিন পাসওয়ার্ড ও নিরাপত্তা সেটিংস
+                        </h4>
+                        <p className="text-xs text-[#737373]">
+                          নতুন পাসওয়ার্ড দিলে তা সরাসরি ডেটাবেজে সংরক্ষিত হয়ে যাবে
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-bold text-sm text-[#1a1a1a]">
-                        অ্যাডমিন পাসওয়ার্ড ও পিন কোড
-                      </h4>
-                      <p className="text-xs text-[#737373]">
-                        বর্তমান পিন: <strong className="font-mono text-[#b91c1c] text-sm">{adminPin}</strong>
-                      </p>
-                    </div>
+
+                    <span className="bg-[#ecfdf5] text-[#065f46] text-[10px] font-bold px-2.5 py-1 rounded-xs border border-[#a7f3d0] flex items-center gap-1">
+                      <Database className="w-3 h-3 text-[#059669]" />
+                      <span>ডেটাবেজ সক্রিয়</span>
+                    </span>
                   </div>
 
+                  {/* Current Password Info Box */}
+                  <div className="bg-[#fcfbf9] p-3.5 rounded-xs border border-[#ded8cb] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                    <div>
+                      <span className="text-[#737373] block">বর্তমান সক্রিয় পাসওয়ার্ড:</span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <strong className="font-mono text-[#b91c1c] text-sm tracking-wider">
+                          {showNewPassword ? adminPin : '••••••••'}
+                        </strong>
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                          className="text-[#737373] hover:text-[#1a1a1a] p-0.5 cursor-pointer"
+                          title={showNewPassword ? 'লুকান' : 'দেখুন'}
+                        >
+                          {showNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5 text-[#525252]" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {lastPasswordUpdated && (
+                      <div className="text-[11px] text-[#525252] sm:text-right">
+                        <span className="text-[#737373]">সর্বশেষ আপডেট:</span>
+                        <div className="font-bold text-[#1a1a1a]">{lastPasswordUpdated}</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Success Alert */}
                   {pinChangeSuccess && (
-                    <div className="p-2.5 bg-[#ecfdf5] border border-[#a7f3d0] rounded-xs text-[#065f46] text-xs font-bold flex items-center gap-2">
-                      <Check className="w-4 h-4 text-[#059669]" />
+                    <div className="p-3 bg-[#ecfdf5] border border-[#a7f3d0] rounded-xs text-[#065f46] text-xs font-bold flex items-start gap-2 animate-in fade-in duration-200">
+                      <CheckCircle2 className="w-4 h-4 text-[#059669] shrink-0 mt-0.5" />
                       <span>{pinChangeSuccess}</span>
                     </div>
                   )}
 
-                  <form onSubmit={handleUpdatePin} className="space-y-3">
+                  {/* Error Alert */}
+                  {pinChangeError && (
+                    <div className="p-3 bg-[#fef2f2] border border-[#fca5a5] rounded-xs text-[#b91c1c] text-xs font-bold flex items-start gap-2 animate-in fade-in duration-200">
+                      <AlertCircle className="w-4 h-4 text-[#b91c1c] shrink-0 mt-0.5" />
+                      <span>{pinChangeError}</span>
+                    </div>
+                  )}
+
+                  {/* Password Update Form */}
+                  <form onSubmit={handleUpdatePassword} className="space-y-4 pt-1">
                     <div>
                       <label className="block text-xs font-bold text-[#1a1a1a] mb-1">
-                        নতুন পিন কোড লিখুন (কমপক্ষে ৪ সংখ্যা):
+                        নতুন পাসওয়ার্ড লিখুন (কমপক্ষে ৪ অক্ষর বা সংখ্যা):
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showNewPassword ? 'text' : 'password'}
+                          maxLength={30}
+                          required
+                          value={newPinInput}
+                          onChange={(e) => setNewPinInput(e.target.value)}
+                          placeholder="যেমন: Barta2026 বা 7780"
+                          className="w-full bg-[#fbf9f4] border border-[#ded8cb] rounded-xs px-3 py-2 pr-10 text-sm font-mono text-[#1a1a1a] focus:outline-hidden focus:border-[#b91c1c]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#737373] hover:text-[#1a1a1a] p-1 cursor-pointer"
+                        >
+                          {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#1a1a1a] mb-1">
+                        নতুন পাসওয়ার্ড পুনরায় লিখুন (নিশ্চিতকরণ):
                       </label>
                       <input
-                        type="password"
-                        maxLength={8}
+                        type={showNewPassword ? 'text' : 'password'}
+                        maxLength={30}
                         required
-                        value={newPinInput}
-                        onChange={(e) => setNewPinInput(e.target.value)}
-                        placeholder="যেমন: 7780"
+                        value={confirmPinInput}
+                        onChange={(e) => setConfirmPinInput(e.target.value)}
+                        placeholder="একই পাসওয়ার্ড আবার লিখুন"
                         className="w-full bg-[#fbf9f4] border border-[#ded8cb] rounded-xs px-3 py-2 text-sm font-mono text-[#1a1a1a] focus:outline-hidden focus:border-[#b91c1c]"
                       />
                     </div>
 
                     <button
                       type="submit"
-                      className="w-full bg-[#b91c1c] hover:bg-[#991b1b] text-white font-bold py-2 px-4 rounded-xs text-xs cursor-pointer border border-[#7f1d1d] flex items-center justify-center gap-1.5"
+                      className="w-full bg-[#b91c1c] hover:bg-[#991b1b] text-white font-bold py-2.5 px-4 rounded-xs text-xs cursor-pointer border border-[#7f1d1d] flex items-center justify-center gap-2 shadow-xs transition-colors"
                     >
-                      <Check className="w-4 h-4" />
-                      <span>পিন কোড সংরক্ষণ করুন</span>
+                      <Save className="w-4 h-4" />
+                      <span>নতুন পাসওয়ার্ড ডেটাবেজে সংরক্ষণ করুন</span>
                     </button>
                   </form>
+
+                  {/* Security Notice */}
+                  <div className="bg-[#eff6ff] p-3 rounded-xs border border-[#bfdbfe] text-xs text-[#1e40af] space-y-1">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-[#2563eb]" />
+                      <span>নিরাপত্তা পরামর্শ:</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-[#1e3a8a]">
+                      পাসওয়ার্ড পরিবর্তন করার সাথে সাথেই তা স্বয়ংক্রিয়ভাবে ব্রাউজার ও ডেটাবেজে সংরক্ষিত হয়ে যায়। পরিবর্তন করার পর আপনার নতুন পাসওয়ার্ডটি কোনো নিরাপদ স্থানে লিখে রাখুন।
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
