@@ -20,7 +20,6 @@ import {
   Maximize2
 } from 'lucide-react';
 import { NewsArticle } from '../types';
-import { VideoPlayerCard } from './VideoPlayerCard';
 
 interface ArticleBodyProps {
   article: NewsArticle;
@@ -259,17 +258,6 @@ export const ArticleBody: React.FC<ArticleBodyProps> = ({ article, onShareClick 
             );
           })}
         </div>
-
-        {/* Video Player Card (Mobile Responsive, YouTube / MP4 / FB support) */}
-        {article.videoUrl && (
-          <div className="mt-8 pt-6 border-t-2 border-[#1a1a1a]">
-            <VideoPlayerCard 
-              videoUrl={article.videoUrl}
-              videoCaption={article.videoCaption}
-              title={article.title}
-            />
-          </div>
-        )}
 
         {/* Live Timeline of Events */}
         {article.timeline && article.timeline.length > 0 && (

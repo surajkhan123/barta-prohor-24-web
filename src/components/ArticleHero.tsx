@@ -18,7 +18,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Layers,
-  Sparkles
+  Sparkles,
+  Play,
+  Video
 } from 'lucide-react';
 import { NewsArticle } from '../types';
 import { getCategoryFallbackImage } from '../utils/imageCompressor';
@@ -39,6 +41,18 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [imgLoadFailed, setImgLoadFailed] = useState(false);
+
+  const scrollToVideo = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const el = document.getElementById('news-video-player');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+      el.classList.add('ring-4', 'ring-[#b91c1c]');
+      setTimeout(() => {
+        el.classList.remove('ring-4', 'ring-[#b91c1c]');
+      }, 2000);
+    }
+  };
 
   // Reliable category-based fallback image if none provided or if image fails to load
   const categoryFallback = getCategoryFallbackImage(article.category);
@@ -91,6 +105,19 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
             <ShieldCheck className="w-3.5 h-3.5 text-[#059669]" />
             <span>{article.statusBadge?.text || 'তথ্য যাচাইকৃত ও নির্ভরযোগ্য'}</span>
           </span>
+
+          {/* Prominent Video Badge */}
+          {article.videoUrl && (
+            <button
+              type="button"
+              onClick={scrollToVideo}
+              className="bg-[#b91c1c] hover:bg-[#991b1b] text-white font-bold text-xs px-2.5 py-0.5 rounded-xs flex items-center gap-1.5 shadow-xs cursor-pointer animate-pulse transition-transform hover:scale-105 font-['Noto_Serif_Bengali']"
+              title="ভিডিও প্রতিবেদন দেখতে ক্লিক করুন"
+            >
+              <Video className="w-3.5 h-3.5" />
+              <span>ভিডিও রিপোর্ট</span>
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -127,6 +154,33 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
         <p className="text-base sm:text-lg lg:text-xl text-[#262626] leading-relaxed font-normal border-l-4 border-[#b91c1c] pl-4 py-2.5 bg-[#f3efe6] rounded-r-xs font-['Noto_Serif_Bengali']">
           {article.subtitle}
         </p>
+      )}
+
+      {/* Prominent Mobile-Friendly Video Notice / Click to Watch Action Bar */}
+      {article.videoUrl && (
+        <div 
+          onClick={scrollToVideo}
+          className="p-3 sm:p-4 bg-[#fef2f2] hover:bg-[#fee2e2] border-2 border-[#b91c1c] rounded-xs flex items-center justify-between cursor-pointer transition-all group shadow-sm active:scale-[0.99]"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#b91c1c] group-hover:scale-110 text-white flex items-center justify-center shrink-0 shadow-md transition-transform">
+              <Play className="w-5 h-5 fill-white ml-0.5" />
+            </div>
+            <div>
+              <div className="text-[11px] sm:text-xs font-black uppercase text-[#b91c1c] tracking-wider font-['Noto_Serif_Bengali'] flex items-center gap-1.5">
+                <Video className="w-3.5 h-3.5" />
+                <span>ভিডিও সংবাদ যুক্ত আছে • ক্লিক করে সরাসরি ভিডিও দেখুন</span>
+              </div>
+              <p className="text-xs sm:text-sm font-bold text-[#1a1a1a] line-clamp-1 font-['Noto_Serif_Bengali']">
+                {article.videoCaption || 'এই সংবাদের বিশেষ ভিডিও প্রতিবেদন প্লে করুন'}
+              </p>
+            </div>
+          </div>
+          <div className="shrink-0 flex items-center gap-1 bg-[#b91c1c] text-white text-xs font-bold px-3 py-1.5 rounded-xs shadow-xs font-['Noto_Serif_Bengali']">
+            <span>প্লে করুন</span>
+            <Play className="w-3 h-3 fill-white" />
+          </div>
+        </div>
       )}
 
       {/* Author & Timestamp Bar */}
@@ -193,10 +247,22 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
               )}
             </div>
 
-            {/* Click to expand overlay hint */}
-            <div className="absolute bottom-3 right-3 bg-[#1a1a1a]/85 hover:bg-[#b91c1c] text-white text-xs px-2.5 py-1 rounded-xs flex items-center gap-1.5 border border-[#404040] shadow-md transition-colors">
-              <Maximize2 className="w-3.5 h-3.5" />
-              <span>বড় করে দেখুন</span>
+            {/* Click to expand overlay hint & Video play hint */}
+            <div className="absolute bottom-3 right-3 flex items-center gap-2">
+              {article.videoUrl && (
+                <button
+                  type="button"
+                  onClick={scrollToVideo}
+                  className="bg-[#b91c1c] hover:bg-[#991b1b] text-white text-xs px-2.5 py-1 rounded-xs flex items-center gap-1.5 border border-[#ef4444] shadow-md transition-all cursor-pointer font-['Noto_Serif_Bengali'] animate-bounce"
+                >
+                  <Play className="w-3.5 h-3.5 fill-white" />
+                  <span>ভিডিও প্লে করুন</span>
+                </button>
+              )}
+              <div className="bg-[#1a1a1a]/85 hover:bg-[#b91c1c] text-white text-xs px-2.5 py-1 rounded-xs flex items-center gap-1.5 border border-[#404040] shadow-md transition-colors">
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>বড় ছবি</span>
+              </div>
             </div>
           </div>
         </div>
@@ -280,9 +346,20 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
               {article.category || 'সংবাদ বিভাগ'}
             </h4>
             <p className="text-xs text-[#a3a3a3]">{article.author?.name || 'ডিজিটাল ডেস্ক'}</p>
-            <div className="text-[11px] bg-[#1a1a1a] text-[#fbbf24] px-2 py-1 rounded-xs border border-[#333333] font-['Noto_Serif_Bengali']">
-              আপডেট: {article.publishedAt || 'আজকের সংবাদ'}
-            </div>
+            {article.videoUrl ? (
+              <button
+                type="button"
+                onClick={scrollToVideo}
+                className="w-full text-xs bg-[#b91c1c] hover:bg-[#991b1b] text-white py-1.5 px-2 rounded-xs font-bold font-['Noto_Serif_Bengali'] flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+              >
+                <Play className="w-3.5 h-3.5 fill-white" />
+                <span>ভিডিও দেখুন</span>
+              </button>
+            ) : (
+              <div className="text-[11px] bg-[#1a1a1a] text-[#fbbf24] px-2 py-1 rounded-xs border border-[#333333] font-['Noto_Serif_Bengali']">
+                আপডেট: {article.publishedAt || 'আজকের সংবাদ'}
+              </div>
+            )}
           </div>
         </div>
 

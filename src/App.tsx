@@ -13,6 +13,7 @@ import { SubscribeModal } from './components/SubscribeModal';
 import { BookmarksModal } from './components/BookmarksModal';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { QRCodeModal } from './components/QRCodeModal';
+import { VideoPlayerCard } from './components/VideoPlayerCard';
 import { MAIN_ARTICLE } from './data/newsData';
 import { NewsArticle, Subscriber } from './types';
 import { loadStoredSubscribers, saveSubscribersToStorage } from './data/subscriberStore';
@@ -31,7 +32,11 @@ import {
   TrendingUp,
   AlertTriangle,
   Lock,
-  QrCode
+  QrCode,
+  Video,
+  Headphones,
+  Bookmark,
+  MessageSquare
 } from 'lucide-react';
 
 export default function App() {
@@ -210,7 +215,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setIsAdminOpen(true)}
               className="shrink-0 bg-[#b91c1c] hover:bg-[#991b1b] text-white text-xs font-bold px-3 py-1.5 rounded-sm transition-colors cursor-pointer border border-[#7f1d1d] flex items-center gap-1 font-['Noto_Serif_Bengali']"
@@ -218,6 +223,21 @@ export default function App() {
               <Lock className="w-3 h-3" />
               <span>নতুন খবর যোগ করুন</span>
             </button>
+
+            {article.videoUrl && (
+              <button
+                onClick={() => {
+                  const el = document.getElementById('news-video-player');
+                  el?.scrollIntoView({ behavior: 'smooth' });
+                  el?.classList.add('ring-4', 'ring-[#b91c1c]');
+                  setTimeout(() => el?.classList.remove('ring-4', 'ring-[#b91c1c]'), 2000);
+                }}
+                className="shrink-0 bg-[#b91c1c] hover:bg-[#991b1b] text-white text-xs font-bold px-3 py-1.5 rounded-sm transition-colors cursor-pointer border border-[#7f1d1d] flex items-center gap-1.5 animate-pulse font-['Noto_Serif_Bengali'] shadow-xs"
+              >
+                <Video className="w-3.5 h-3.5" />
+                <span>ভিডিও দেখুন</span>
+              </button>
+            )}
 
             <button
               onClick={() => {
@@ -232,7 +252,7 @@ export default function App() {
         </div>
 
         {/* 2-Column Content Layout (Article + Sidebar) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pb-16 lg:pb-0">
           {/* Main Story Column (8 cols) */}
           <div className="lg:col-span-8 space-y-6">
             {/* Headline and Hero */}
@@ -251,6 +271,16 @@ export default function App() {
               audioUrl={article.audioUrl}
               audioName={article.audioName}
             />
+
+            {/* Dedicated Video Player Card (Mobile Responsive, YouTube / MP4 / FB support) */}
+            {article.videoUrl && (
+              <VideoPlayerCard 
+                videoUrl={article.videoUrl}
+                videoCaption={article.videoCaption}
+                title={article.title}
+                category={article.category}
+              />
+            )}
 
             {/* Full Body Article with Reader Controls */}
             <ArticleBody
@@ -426,9 +456,96 @@ export default function App() {
         newsTitle={article.title}
       />
 
+      {/* Mobile-Friendly Sticky Bottom Action Bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#141414]/95 backdrop-blur-md text-white border-t border-[#2e2e2e] px-2 py-2 flex items-center justify-around shadow-2xl safe-area-bottom font-['Noto_Serif_Bengali']">
+        {/* Audio Button */}
+        <button
+          onClick={() => {
+            const el = document.getElementById('audio-news-player');
+            el?.scrollIntoView({ behavior: 'smooth' });
+          }}
+          className="flex flex-col items-center justify-center p-1 text-[#e5e5e5] hover:text-[#fbbf24] active:scale-95 transition-transform"
+        >
+          <Headphones className="w-4 h-4 text-[#fbbf24]" />
+          <span className="text-[10px] mt-0.5 font-bold">অডিও শুনুন</span>
+        </button>
+
+        {/* Video Button (Highlighted if video exists) */}
+        {article.videoUrl ? (
+          <button
+            onClick={() => {
+              const el = document.getElementById('news-video-player');
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth' });
+                el.classList.add('ring-4', 'ring-[#b91c1c]');
+                setTimeout(() => el.classList.remove('ring-4', 'ring-[#b91c1c]'), 2000);
+              }
+            }}
+            className="flex flex-col items-center justify-center p-1.5 px-3 bg-[#b91c1c] text-white rounded-xs shadow-md active:scale-95 transition-transform relative animate-pulse"
+          >
+            <div className="flex items-center gap-1">
+              <Video className="w-4 h-4" />
+              <span className="text-[11px] font-black">ভিডিও দেখুন</span>
+            </div>
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#fef08a] rounded-full animate-ping" />
+          </button>
+        ) : (
+          <button
+            onClick={() => {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className="flex flex-col items-center justify-center p-1 text-[#e5e5e5] hover:text-[#b91c1c] active:scale-95 transition-transform"
+          >
+            <Radio className="w-4 h-4 text-[#b91c1c]" />
+            <span className="text-[10px] mt-0.5">লাইভ নিউজ</span>
+          </button>
+        )}
+
+        {/* Share Button */}
+        <button
+          onClick={handleShareClick}
+          className="flex flex-col items-center justify-center p-1 text-[#e5e5e5] hover:text-[#38bdf8] active:scale-95 transition-transform"
+        >
+          <Share2 className="w-4 h-4 text-[#38bdf8]" />
+          <span className="text-[10px] mt-0.5">শেয়ার</span>
+        </button>
+
+        {/* Bookmark Button */}
+        <button
+          onClick={handleToggleBookmark}
+          className={`flex flex-col items-center justify-center p-1 active:scale-95 transition-transform ${
+            isBookmarked ? 'text-[#f87171]' : 'text-[#e5e5e5] hover:text-white'
+          }`}
+        >
+          <Bookmark className={`w-4 h-4 ${isBookmarked ? 'fill-[#b91c1c] text-[#b91c1c]' : ''}`} />
+          <span className="text-[10px] mt-0.5">{isBookmarked ? 'সংরক্ষিত' : 'সেভ'}</span>
+        </button>
+
+        {/* Comment Button */}
+        <button
+          onClick={() => {
+            const el = document.getElementById('comments-section');
+            el?.scrollIntoView({ behavior: 'smooth' });
+          }}
+          className="flex flex-col items-center justify-center p-1 text-[#e5e5e5] hover:text-[#34d399] active:scale-95 transition-transform"
+        >
+          <MessageSquare className="w-4 h-4 text-[#34d399]" />
+          <span className="text-[10px] mt-0.5">মন্তব্য</span>
+        </button>
+
+        {/* Admin Quick Link */}
+        <button
+          onClick={() => setIsAdminOpen(true)}
+          className="flex flex-col items-center justify-center p-1 text-[#a3a3a3] hover:text-white active:scale-95 transition-transform"
+        >
+          <Lock className="w-3.5 h-3.5 text-[#a3a3a3]" />
+          <span className="text-[9px] mt-0.5">অ্যাডমিন</span>
+        </button>
+      </div>
+
       {/* Share Toast */}
       {shareToast && (
-        <div className="fixed bottom-6 right-6 bg-[#1a1a1a] text-white text-xs px-4 py-2.5 rounded-sm shadow-xl z-50 flex items-center gap-2 border border-[#333333] animate-bounce">
+        <div className="fixed bottom-16 sm:bottom-6 right-4 sm:right-6 bg-[#1a1a1a] text-white text-xs px-4 py-2.5 rounded-sm shadow-xl z-50 flex items-center gap-2 border border-[#333333] animate-bounce font-['Noto_Serif_Bengali']">
           <Check className="w-4 h-4 text-[#34d399]" />
           <span>সংবাদের লিংক সফলভাবে কপি করা হয়েছে!</span>
         </div>
@@ -436,7 +553,7 @@ export default function App() {
 
       {/* Subscription Success Notification Toast */}
       {subToast && (
-        <div className="fixed bottom-6 left-6 bg-[#065f46] text-white text-xs px-4 py-3 rounded-xs shadow-2xl z-50 flex items-center gap-2.5 border border-[#10b981] font-['Noto_Serif_Bengali'] animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div className="fixed bottom-16 sm:bottom-6 left-4 sm:left-6 bg-[#065f46] text-white text-xs px-4 py-3 rounded-xs shadow-2xl z-50 flex items-center gap-2.5 border border-[#10b981] font-['Noto_Serif_Bengali'] animate-in fade-in slide-in-from-bottom-2 duration-200">
           <div className="w-5 h-5 rounded-full bg-[#10b981] text-white flex items-center justify-center shrink-0">
             <Check className="w-3.5 h-3.5" />
           </div>
