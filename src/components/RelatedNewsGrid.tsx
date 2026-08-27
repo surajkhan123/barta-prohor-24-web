@@ -2,7 +2,12 @@ import React from 'react';
 import { Clock, ArrowUpRight, Flame, Sparkles } from 'lucide-react';
 import { RELATED_STORIES } from '../data/newsData';
 
-export const RelatedNewsGrid: React.FC = () => {
+interface RelatedNewsGridProps {
+  onSelectCategory?: (category: string) => void;
+  onGoHome?: () => void;
+}
+
+export const RelatedNewsGrid: React.FC<RelatedNewsGridProps> = ({ onSelectCategory, onGoHome }) => {
   return (
     <section id="related-news-section" className="space-y-4 my-8">
       <div className="flex items-center justify-between border-b-2 border-[#1a1a1a] pb-2">
@@ -12,16 +17,20 @@ export const RelatedNewsGrid: React.FC = () => {
             সম্পর্কিত খবর ও বিশেষ প্রতিবেদন
           </h3>
         </div>
-        <span className="text-xs font-bold text-[#b91c1c] hover:text-[#991b1b] transition-colors cursor-pointer flex items-center gap-1 font-['Noto_Serif_Bengali']">
-          <span>সব খবর দেখুন</span>
+        <button 
+          onClick={onGoHome}
+          className="text-xs font-bold text-[#b91c1c] hover:text-[#991b1b] transition-colors cursor-pointer flex items-center gap-1 font-['Noto_Serif_Bengali']"
+        >
+          <span>সব খবর (প্রচ্ছদ)</span>
           <ArrowUpRight className="w-3.5 h-3.5" />
-        </span>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {RELATED_STORIES.map((story) => (
           <article
             key={story.id}
+            onClick={() => onSelectCategory ? onSelectCategory(story.category) : onGoHome?.()}
             className="group bg-white rounded-none sm:rounded-xs border border-[#ded8cb] overflow-hidden shadow-2xs hover:border-[#b91c1c] transition-all duration-200 flex flex-col justify-between cursor-pointer"
           >
             <div className="relative h-40 overflow-hidden bg-[#f3efe6]">

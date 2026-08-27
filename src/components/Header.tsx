@@ -17,6 +17,9 @@ import {
 import { BrandLogo } from './BrandLogo';
 
 interface HeaderProps {
+  activeCategory: string;
+  onSelectCategory: (categoryName: string) => void;
+  onGoHome: () => void;
   onSubscribeClick: () => void;
   onBookmarkClick: () => void;
   onAdminClick: () => void;
@@ -25,6 +28,9 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
+  activeCategory,
+  onSelectCategory,
+  onGoHome,
   onSubscribeClick, 
   onBookmarkClick, 
   onAdminClick,
@@ -35,7 +41,6 @@ export const Header: React.FC<HeaderProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [activeCategory, setActiveCategory] = useState('বিনোদন');
   const [subscribedToast, setSubscribedToast] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -73,7 +78,7 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   const categories = [
-    { name: 'প্রচ্ছদ', slug: 'home' },
+    { name: 'প্রচ্ছদ', slug: 'home', isHome: true },
     { name: 'বিনোদন', slug: 'entertainment', hot: true },
     { name: 'দেশ-বিদেশ', slug: 'national-international' },
     { name: 'রাজ্য', slug: 'state' },
@@ -83,9 +88,18 @@ export const Header: React.FC<HeaderProps> = ({
     { name: 'ভিডিও ও লাইভ', slug: 'live-tv', isLive: true },
   ];
 
+  const handleCategoryClick = (cat: typeof categories[0]) => {
+    if (cat.isHome || cat.name === 'প্রচ্ছদ') {
+      onGoHome();
+    } else {
+      onSelectCategory(cat.name);
+    }
+    setMobileMenuOpen(false);
+  };
+
   return (
     <header id="main-header" className="w-full bg-[#f8f7f2] border-b border-[#ded8cb]">
-      {/* Top Utility Dateline Bar (Scrolls with page) */}
+      {/* Top Utility Dateline Bar */}
       <div className="bg-[#1a1a1a] text-[#d4d4d4] text-xs py-1 px-4 sm:px-8 border-b border-[#2d2d2d]">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-4">
@@ -141,7 +155,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Main Newspaper Masthead Section (Scrolls naturally away, free screen space) */}
+      {/* Main Newspaper Masthead Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-8 py-3.5 flex flex-col md:flex-row items-center justify-between gap-3">
         {/* Left edition info (desktop) */}
         <div className="hidden lg:flex flex-col text-[11px] text-[#525252] space-y-0.5">
@@ -150,11 +164,18 @@ export const Header: React.FC<HeaderProps> = ({
           <span>বর্ষ ৪ • সংখ্যা ৩১৮ • পৃষ্ঠা ১২</span>
         </div>
 
-        {/* Brand Masthead with Classic News Typography */}
-        <div className="flex items-center gap-3 select-none cursor-pointer">
+        {/* Brand Masthead (Clicking goes to Homepage) */}
+        <div 
+          onClick={onGoHome}
+          className="flex items-center gap-3 select-none cursor-pointer"
+          title="হোমপেজে ফিরে যান"
+        >
           <button
             id="mobile-menu-toggle"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setMobileMenuOpen(!mobileMenuOpen);
+            }}
             className="lg:hidden p-1.5 text-[#1a1a1a] hover:bg-[#eae5db] rounded-xs transition-colors"
             aria-label="মেনু খুলুন"
           >
@@ -216,7 +237,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => {
               if (navigator.share) {
                 navigator.share({
-                  title: 'নেপালে আটকে টলিউড অভিনেতা খরাজ মুখোপাধ্যায় | BARTA PROHOR 24',
+                  title: 'BARTA PROHOR 24 | সত্যের সন্ধানে নির্ভীক সাংবাদিকতা',
                   url: window.location.href,
                 }).catch(() => {});
               } else {
@@ -233,14 +254,14 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Sleek, Compact Sticky Navigation Bar (Consumes only ~40px on scroll!) */}
+      {/* Sleek, Compact Sticky Navigation Bar */}
       <nav className={`w-full transition-all duration-200 z-40 bg-[#f3efe6] border-y-2 border-[#1a1a1a] ${
         isScrolled 
           ? 'sticky top-0 shadow-md bg-[#f3efe6]/95 backdrop-blur-xs py-0.5' 
           : 'relative py-1 hidden lg:block'
       }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-8 flex items-center justify-between">
-          {/* Left section in sticky mode: Show compact mini logo & mobile menu */}
+          {/* Left section in sticky mode */}
           <div className="flex items-center gap-3">
             {/* Mobile menu trigger when scrolled */}
             <button
@@ -254,8 +275,8 @@ export const Header: React.FC<HeaderProps> = ({
             {isScrolled && (
               <div 
                 className="flex items-center gap-2 cursor-pointer pr-2 border-r border-[#ded8cb]"
-                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                title="উপরে যান"
+                onClick={onGoHome}
+                title="হোমপেজে ফিরে যান"
               >
                 <div className="bg-[#b91c1c] text-white px-2 py-0.5 rounded-xs text-xs font-black font-['Noto_Serif_Bengali'] flex items-center gap-1">
                   <span>বার্তা প্রহর</span>
@@ -266,32 +287,35 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Category tabs */}
             <ul className="hidden lg:flex items-center space-x-1 text-xs font-bold">
-              {categories.map((cat) => (
-                <li key={cat.slug}>
-                  <button
-                    id={`cat-nav-${cat.slug}`}
-                    onClick={() => setActiveCategory(cat.name)}
-                    className={`px-2.5 py-1 rounded-xs transition-all duration-150 flex items-center gap-1.5 cursor-pointer font-['Noto_Serif_Bengali'] ${
-                      activeCategory === cat.name
-                        ? 'bg-[#b91c1c] text-white shadow-xs'
-                        : 'text-[#1a1a1a] hover:bg-[#e4ded2]'
-                    }`}
-                  >
-                    {cat.hot && <Flame className="w-3 h-3 text-[#fbbf24] fill-[#fbbf24]" />}
-                    {cat.isLive && <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping mr-0.5" />}
-                    <span>{cat.name}</span>
-                    {cat.alert && (
-                      <span className="bg-[#fef3c7] text-[#92400e] border border-[#f59e0b] text-[9px] font-bold px-1 py-0.1 rounded-xs">
-                        সতর্কবার্তা
-                      </span>
-                    )}
-                  </button>
-                </li>
-              ))}
+              {categories.map((cat) => {
+                const isActive = (cat.isHome && activeCategory === 'প্রচ্ছদ') || activeCategory === cat.name;
+                return (
+                  <li key={cat.slug}>
+                    <button
+                      id={`cat-nav-${cat.slug}`}
+                      onClick={() => handleCategoryClick(cat)}
+                      className={`px-2.5 py-1 rounded-xs transition-all duration-150 flex items-center gap-1.5 cursor-pointer font-['Noto_Serif_Bengali'] ${
+                        isActive
+                          ? 'bg-[#b91c1c] text-white shadow-xs'
+                          : 'text-[#1a1a1a] hover:bg-[#e4ded2]'
+                      }`}
+                    >
+                      {cat.hot && <Flame className="w-3 h-3 text-[#fbbf24] fill-[#fbbf24]" />}
+                      {cat.isLive && <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping mr-0.5" />}
+                      <span>{cat.name}</span>
+                      {cat.alert && (
+                        <span className="bg-[#fef3c7] text-[#92400e] border border-[#f59e0b] text-[9px] font-bold px-1 py-0.1 rounded-xs">
+                          সতর্কবার্তা
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </div>
 
-          {/* Right section: Special coverage badge or compact action buttons when scrolled */}
+          {/* Right section */}
           <div className="flex items-center gap-2 text-xs font-bold font-['Noto_Serif_Bengali']">
             {isScrolled ? (
               <div className="flex items-center gap-1.5">
@@ -327,7 +351,7 @@ export const Header: React.FC<HeaderProps> = ({
             ) : (
               <div className="hidden lg:flex items-center gap-2 text-[#b91c1c]">
                 <span className="w-2 h-2 rounded-full bg-[#b91c1c] animate-pulse"></span>
-                <span>বিশেষ কভারেজ: নেপাল পাহাড়ি বন্যা পরিস্থিতি</span>
+                <span>২৪ ঘণ্টা সত্য ও দ্রুত সংবাদ পরিবেশন</span>
               </div>
             )}
           </div>
@@ -349,22 +373,22 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            {categories.map((cat) => (
-              <button
-                key={cat.slug}
-                onClick={() => {
-                  setActiveCategory(cat.name);
-                  setMobileMenuOpen(false);
-                }}
-                className={`text-left px-3 py-2 rounded-xs text-xs font-bold transition-colors font-['Noto_Serif_Bengali'] ${
-                  activeCategory === cat.name
-                    ? 'bg-[#b91c1c] text-white'
-                    : 'bg-white border border-[#e5dfd3] text-[#1a1a1a] hover:bg-[#f3efe6]'
-                }`}
-              >
-                {cat.name}
-              </button>
-            ))}
+            {categories.map((cat) => {
+              const isActive = (cat.isHome && activeCategory === 'প্রচ্ছদ') || activeCategory === cat.name;
+              return (
+                <button
+                  key={cat.slug}
+                  onClick={() => handleCategoryClick(cat)}
+                  className={`text-left px-3 py-2 rounded-xs text-xs font-bold transition-colors font-['Noto_Serif_Bengali'] ${
+                    isActive
+                      ? 'bg-[#b91c1c] text-white'
+                      : 'bg-white border border-[#e5dfd3] text-[#1a1a1a] hover:bg-[#f3efe6]'
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              );
+            })}
           </div>
 
           <div className="pt-3 border-t border-[#ded8cb] flex flex-col gap-2">

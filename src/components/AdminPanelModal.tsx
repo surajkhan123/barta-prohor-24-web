@@ -759,6 +759,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                           <option value="রাজনীতি">রাজনীতি</option>
                           <option value="আবহাওয়া ও দুর্যোগ">আবহাওয়া ও দুর্যোগ</option>
                           <option value="খেলাধুলা">খেলাধুলা</option>
+                          <option value="ভিডিও ও লাইভ">ভিডিও ও লাইভ</option>
                           <option value="বিশেষ সম্পাদকীয়">বিশেষ সম্পাদকীয়</option>
                         </select>
                       </div>
