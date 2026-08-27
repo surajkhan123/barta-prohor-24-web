@@ -1808,7 +1808,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         required
                         value={recoveryEmailState}
                         onChange={(e) => setRecoveryEmailState(e.target.value)}
-                        placeholder="surajkhanghatal@gmail.com"
+                        placeholder="আপনার রিকভারি জিমেইল লিখুন"
                         className="w-full bg-[#fbf9f4] border border-[#ded8cb] rounded-xs px-3 py-2 text-xs font-mono text-[#1a1a1a] focus:outline-hidden focus:border-[#2563eb]"
                       />
                     </div>
@@ -1822,7 +1822,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         required
                         value={secQuestionState}
                         onChange={(e) => setSecQuestionState(e.target.value)}
-                        placeholder="যেমন: আপনার প্রিয় সিকিউরিটি কিওয়ার্ড কি?"
+                        placeholder="আপনার নিরাপত্তা প্রশ্ন লিখুন"
                         className="w-full bg-[#fbf9f4] border border-[#ded8cb] rounded-xs px-3 py-2 text-xs text-[#1a1a1a] focus:outline-hidden focus:border-[#2563eb]"
                       />
                     </div>
@@ -1836,7 +1836,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                         required
                         value={secAnswerState}
                         onChange={(e) => setSecAnswerState(e.target.value)}
-                        placeholder="যেমন: Oppo"
+                        placeholder="আপনার গোপন উত্তর লিখুন"
                         className="w-full bg-[#fbf9f4] border border-[#ded8cb] rounded-xs px-3 py-2 text-xs text-[#1a1a1a] focus:outline-hidden focus:border-[#2563eb]"
                       />
                     </div>

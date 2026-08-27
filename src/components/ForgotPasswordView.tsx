@@ -19,7 +19,7 @@ import {
   getSecurityQuestion,
   verifyMasterRecoveryKey,
   verifySecurityAnswer,
-  generatePasswordResetOTP, 
+  sendPasswordResetEmailOTP, 
   verifyPasswordResetOTP, 
   updateStoredAdminPassword 
 } from '../data/authStore';
@@ -85,7 +85,7 @@ export const ForgotPasswordView: React.FC<ForgotPasswordViewProps> = ({
   }, [otpCountdown]);
 
   // Handle Send OTP
-  const handleSendOTP = (e?: React.FormEvent) => {
+  const handleSendOTP = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
@@ -104,14 +104,17 @@ export const ForgotPasswordView: React.FC<ForgotPasswordViewProps> = ({
     }
 
     setIsSendingOtp(true);
-    setTimeout(() => {
-      // Generates secure OTP
-      generatePasswordResetOTP(registeredEmail);
+    try {
+      // Calls backend dispatch to send real email
+      const result = await sendPasswordResetEmailOTP(registeredEmail);
       setIsSendingOtp(false);
       setOtpSent(true);
       setOtpCountdown(60);
       setSuccessMessage(`৬ সংখ্যার ওটিপি কোড পাঠানো হয়েছে ${maskedEmail} এ`);
-    }, 600);
+    } catch (err) {
+      setIsSendingOtp(false);
+      setErrorMessage('ওটিপি পাঠাতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।');
+    }
   };
 
   // Handle Verification across all 3 methods
@@ -295,8 +298,8 @@ export const ForgotPasswordView: React.FC<ForgotPasswordViewProps> = ({
                     <Mail className="w-4 h-4 text-[#b91c1c]" />
                     <span>জিমেইল ভেরিফিকেশন (Email OTP)</span>
                   </div>
-                  <span className="text-[11px] font-mono text-[#059669] font-bold">
-                    {maskedEmail}
+                  <span className="text-[10px] text-[#737373] font-bold">
+                    সুরক্ষিত মাধ্যম
                   </span>
                 </div>
 
@@ -311,7 +314,7 @@ export const ForgotPasswordView: React.FC<ForgotPasswordViewProps> = ({
                         required
                         value={emailInput}
                         onChange={(e) => setEmailInput(e.target.value)}
-                        placeholder="surajkhanghatal@gmail.com"
+                        placeholder="Enter your gmail"
                         className="w-full bg-[#fbf9f4] border-2 border-[#ded8cb] focus:border-[#b91c1c] rounded-xs px-3 py-2 text-xs sm:text-sm font-mono text-[#1a1a1a] focus:outline-hidden"
                         autoFocus
                       />

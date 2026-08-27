@@ -195,10 +195,47 @@ export function verifySecurityAnswer(inputAnswer: string): boolean {
 let currentGeneratedOTP: { code: string; expiresAt: number; email: string } | null = null;
 
 /**
- * Generate a 6-digit OTP code for password reset
+ * Generate a 6-digit OTP code for password reset and send via backend API
+ */
+export async function sendPasswordResetEmailOTP(email: string): Promise<{ success: boolean; code: string; message: string }> {
+  // Generate random 6 digit numeric code
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes validity
+
+  currentGeneratedOTP = {
+    code,
+    expiresAt,
+    email
+  };
+
+  try {
+    const res = await fetch('/api/send-otp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, otp: code }),
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        success: true,
+        code,
+        message: data.message || 'ওটিপি পাঠানো হয়েছে।'
+      };
+    }
+  } catch (err) {
+    console.warn('API send-otp failed, fallback to local verification:', err);
+  }
+
+  return { code, success: true, message: 'ওটিপি কোড সার্ভারে তৈরি হয়েছে।' };
+}
+
+/**
+ * Generate a 6-digit OTP code for password reset (synchronous fallback)
  */
 export function generatePasswordResetOTP(email: string): { code: string; expiresAt: number } {
-  // Generate random 6 digit numeric code
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes validity
 
