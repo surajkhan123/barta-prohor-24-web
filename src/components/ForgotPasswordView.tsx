@@ -111,7 +111,7 @@ export const ForgotPasswordView: React.FC<ForgotPasswordViewProps> = ({
       setIsSendingOtp(false);
       setOtpSent(true);
       setOtpCountdown(60);
-      setSuccessMessage(`৬ সংখ্যার ওটিপি কোড পাঠানো হয়েছে ${maskedEmail} এ`);
+      setSuccessMessage(`৬ সংখ্যার ওটিপি কোড (${registeredEmail}) ঠিকানায় পাঠানো হয়েছে।`);
     } catch (err) {
       setIsSendingOtp(false);
       setErrorMessage('ওটিপি পাঠাতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।');
