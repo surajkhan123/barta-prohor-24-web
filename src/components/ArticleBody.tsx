@@ -14,7 +14,10 @@ import {
   ShieldAlert, 
   Sparkles,
   ExternalLink,
-  MessageCircle
+  MessageCircle,
+  Camera,
+  Layers,
+  Maximize2
 } from 'lucide-react';
 import { NewsArticle } from '../types';
 
@@ -212,30 +215,33 @@ export const ArticleBody: React.FC<ArticleBodyProps> = ({ article, onShareClick 
             }
 
             // Insert Secondary Contextual Photo after paragraph 4
-            if (idx === 4 && article.secondaryImage) {
+            if (idx === 4 && (article.secondaryImage || (article.galleryImages && article.galleryImages.length > 0))) {
+              const displaySecondary = article.secondaryImage || article.galleryImages?.[0];
               return (
                 <React.Fragment key={idx}>
                   <p className="leading-relaxed">{p}</p>
 
-                  <figure className="my-6 border border-[#ded8cb] bg-[#fbf9f4] p-3 rounded-none sm:rounded-xs">
-                    <img 
-                      src={article.secondaryImage.url} 
-                      alt={article.secondaryImage.alt}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-48 sm:h-64 object-cover rounded-xs border border-[#ded8cb]"
-                    />
-                    <figcaption className="pt-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-[#525252]">
-                      <span className="font-['Noto_Serif_Bengali'] leading-snug">
-                        <strong className="text-[#b91c1c] mr-1">[ফিল্ড রিপোর্ট]</strong>
-                        {article.secondaryImage.caption}
-                      </span>
-                      {article.secondaryImage.credit && (
-                        <span className="shrink-0 text-[11px] font-mono text-[#737373]">
-                          {article.secondaryImage.credit}
+                  {displaySecondary && (
+                    <figure className="my-6 border border-[#ded8cb] bg-[#fbf9f4] p-3 rounded-none sm:rounded-xs">
+                      <img 
+                        src={displaySecondary.url} 
+                        alt={displaySecondary.alt || 'ফটো'} 
+                        referrerPolicy="no-referrer"
+                        className="w-full h-56 sm:h-72 object-cover rounded-xs border border-[#ded8cb]"
+                      />
+                      <figcaption className="pt-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-[#525252]">
+                        <span className="font-['Noto_Serif_Bengali'] leading-snug">
+                          <strong className="text-[#b91c1c] mr-1">[ফিল্ড রিপোর্ট]</strong>
+                          {displaySecondary.caption}
                         </span>
-                      )}
-                    </figcaption>
-                  </figure>
+                        {displaySecondary.credit && (
+                          <span className="shrink-0 text-[11px] font-mono text-[#737373]">
+                            {displaySecondary.credit}
+                          </span>
+                        )}
+                      </figcaption>
+                    </figure>
+                  )}
                 </React.Fragment>
               );
             }
@@ -277,6 +283,44 @@ export const ArticleBody: React.FC<ArticleBodyProps> = ({ article, onShareClick 
             ))}
           </div>
         </div>
+
+        {/* Multiple Photo Gallery Grid in Article Body if available */}
+        {article.galleryImages && article.galleryImages.length > 0 && (
+          <div className="mt-8 pt-6 border-t-2 border-[#1a1a1a] space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-[#b91c1c]" />
+                <h3 className="text-base sm:text-lg font-bold text-inherit font-['Noto_Serif_Bengali']">
+                  সংবাদের ফটো গ্যালারি ও চিত্রমালা ({article.galleryImages.length}টি ছবি)
+                </h3>
+              </div>
+              <span className="text-xs bg-[#f3efe6] text-[#b91c1c] font-bold px-2 py-0.5 rounded-xs border border-[#ded8cb] font-['Noto_Serif_Bengali']">
+                ফটোগ্রাফি ডেস্ক
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {article.galleryImages.map((img, idx) => (
+                <figure key={idx} className="bg-[#fbf9f4] border border-[#ded8cb] p-2 rounded-xs space-y-1.5 shadow-2xs">
+                  <img
+                    src={img.url}
+                    alt={img.alt || `Gallery image ${idx + 1}`}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-44 object-cover rounded-xs border border-[#ded8cb]"
+                  />
+                  <figcaption className="text-xs text-[#262626] font-['Noto_Serif_Bengali'] leading-snug line-clamp-2">
+                    {img.caption}
+                  </figcaption>
+                  {img.credit && (
+                    <div className="text-[10px] text-[#737373] font-mono">
+                      {img.credit}
+                    </div>
+                  )}
+                </figure>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Emergency Helpline Box */}
         {article.helplineData && (

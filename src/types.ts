@@ -27,6 +27,7 @@ export interface NewsArticle {
   };
   featuredImage?: ArticleImage;
   secondaryImage?: ArticleImage;
+  galleryImages?: ArticleImage[];
   paragraphs: string[];
   keyHighlights: string[];
   familyStatement: string;

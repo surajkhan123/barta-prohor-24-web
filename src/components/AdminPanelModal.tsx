@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   PlusCircle, 
   Trash2, 
@@ -18,9 +18,12 @@ import {
   Flame,
   Radio,
   Share2,
-  Download
+  Download,
+  Upload,
+  Layers,
+  Plus
 } from 'lucide-react';
-import { NewsArticle } from '../types';
+import { NewsArticle, ArticleImage } from '../types';
 
 interface AdminPanelModalProps {
   isOpen: boolean;
@@ -55,6 +58,9 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [category, setCategory] = useState('বিনোদন');
   const [imageUrl, setImageUrl] = useState('');
   const [imageCaption, setImageCaption] = useState('');
+  const [additionalImages, setAdditionalImages] = useState<ArticleImage[]>([]);
+  const [newAddImageUrl, setNewAddImageUrl] = useState('');
+  const [newAddImageCaption, setNewAddImageCaption] = useState('');
   const [location, setLocation] = useState('কলকাতা / কাঠমান্ডু');
   const [authorName, setAuthorName] = useState('বার্তা প্রহর ২৪ ডিজিটাল ডেস্ক');
   const [paragraphsText, setParagraphsText] = useState('');
@@ -62,6 +68,10 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [statusBadgeText, setStatusBadgeText] = useState('আপডেট: তথ্য যাচাইকৃত');
   const [statusBadgeType, setStatusBadgeType] = useState<'safe' | 'warning' | 'critical' | 'info'>('safe');
   const [successToast, setSuccessToast] = useState('');
+
+  // File input refs
+  const primaryFileInputRef = useRef<HTMLInputElement>(null);
+  const galleryFileInputRef = useRef<HTMLInputElement>(null);
 
   // Admin PIN configuration (Default: 7780)
   const [adminPin, setAdminPin] = useState<string>(() => {
@@ -112,6 +122,9 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     setCategory('বিনোদন');
     setImageUrl('');
     setImageCaption('');
+    setAdditionalImages([]);
+    setNewAddImageUrl('');
+    setNewAddImageCaption('');
     setLocation('কলকাতা');
     setAuthorName('বার্তা প্রহর ২৪ ডিজিটাল ডেস্ক');
     setParagraphsText('');
@@ -127,6 +140,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     setCategory(art.category);
     setImageUrl(art.featuredImage?.url || '');
     setImageCaption(art.featuredImage?.caption || '');
+    setAdditionalImages(art.galleryImages || (art.secondaryImage ? [art.secondaryImage] : []));
     setLocation(art.location);
     setAuthorName(art.author.name);
     setParagraphsText(art.paragraphs.join('\n\n'));
@@ -134,6 +148,71 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     setStatusBadgeText(art.statusBadge.text);
     setStatusBadgeType(art.statusBadge.type);
     setActiveTab('create');
+  };
+
+  // Handle local file upload for primary image
+  const handlePrimaryFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          setImageUrl(reader.result);
+          if (!imageCaption) {
+            setImageCaption(file.name.replace(/\.[^/.]+$/, ''));
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Handle local file upload for multiple gallery images
+  const handleGalleryFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      Array.from(files).forEach((file: File) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            setAdditionalImages(prev => [
+              ...prev,
+              {
+                url: reader.result as string,
+                caption: file.name.replace(/\.[^/.]+$/, ''),
+                alt: file.name.replace(/\.[^/.]+$/, ''),
+                credit: 'সংগৃহীত চিত্র'
+              }
+            ]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+      // reset file input
+      if (galleryFileInputRef.current) {
+        galleryFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleAddGalleryUrlImage = () => {
+    if (newAddImageUrl.trim()) {
+      setAdditionalImages(prev => [
+        ...prev,
+        {
+          url: newAddImageUrl.trim(),
+          caption: newAddImageCaption.trim() || 'সংবাদের অতিরিক্ত চিত্র',
+          alt: newAddImageCaption.trim() || 'সংবাদের অতিরিক্ত চিত্র',
+          credit: 'ফাইল চিত্র / BARTA PROHOR 24'
+        }
+      ]);
+      setNewAddImageUrl('');
+      setNewAddImageCaption('');
+    }
+  };
+
+  const handleRemoveGalleryImage = (index: number) => {
+    setAdditionalImages(prev => prev.filter((_, idx) => idx !== index));
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -174,6 +253,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         credit: 'ফাইল চিত্র / BARTA PROHOR 24 ডিজিটাল ডেস্ক',
         alt: title.trim(),
       } : undefined,
+      secondaryImage: additionalImages.length > 0 ? additionalImages[0] : undefined,
+      galleryImages: additionalImages.length > 0 ? additionalImages : undefined,
       paragraphs: paragraphs,
       keyHighlights: [
         'তাৎক্ষণিক সংবাদ আপডেট বার্তা প্রহর ২৪ ডিজিটালে প্রকাশিত।',
@@ -456,36 +537,204 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Image Section */}
-                  <div className="space-y-3 bg-white p-4 rounded-xs border border-[#ded8cb]">
-                    <h4 className="text-xs font-black uppercase text-[#b91c1c] tracking-wider font-['Noto_Serif_Bengali']">
-                      ২. খবরের ছবি (Photo URL & Caption)
-                    </h4>
+                  {/* Image & Photo Upload Section with Multiple Photos */}
+                  <div className="space-y-4 bg-white p-4 sm:p-5 rounded-xs border border-[#ded8cb]">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#ded8cb] pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1 rounded-xs bg-[#fef2f2] text-[#b91c1c]">
+                          <ImageIcon className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black uppercase text-[#b91c1c] tracking-wider font-['Noto_Serif_Bengali']">
+                            ২. খবরের প্রধান ও একাধিক ছবি (Photo Upload & Gallery)
+                          </h4>
+                          <p className="text-[11px] text-[#737373]">
+                            ফোন/কম্পিউটার থেকে ছবি আপলোড করুন অথবা সরাসরি ওয়েব লিংক ব্যবহার করুন
+                          </p>
+                        </div>
+                      </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-[#1a1a1a] mb-1 font-['Noto_Serif_Bengali']">
-                        ছবির ওয়েব লিংক (Image URL)
-                      </label>
-                      <input
-                        type="url"
-                        value={imageUrl}
-                        onChange={(e) => setImageUrl(e.target.value)}
-                        placeholder="https://... (যেকোনো অনলাইন ফটো লিংক বা উইকিমিডিয়া লিংক)"
-                        className="w-full bg-[#fbf9f4] border border-[#ded8cb] rounded-xs px-3 py-2 text-xs text-[#1a1a1a] font-mono focus:outline-hidden focus:border-[#b91c1c]"
-                      />
+                      <span className="text-[10px] bg-[#f3efe6] text-[#525252] font-mono px-2 py-0.5 rounded-xs border border-[#ded8cb]">
+                        JPG / PNG / WEBP
+                      </span>
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-[#1a1a1a] mb-1 font-['Noto_Serif_Bengali']">
-                        ছবির ক্যাপশন ও বর্ণনা
-                      </label>
-                      <input
-                        type="text"
-                        value={imageCaption}
-                        onChange={(e) => setImageCaption(e.target.value)}
-                        placeholder="উদাঃ শুটিং ইউনিটের সঙ্গে অভিনেতা খরাজ মুখোপাধ্যায় ও স্ত্রী প্রতিভা মুখোপাধ্যায়..."
-                        className="w-full bg-[#fbf9f4] border border-[#ded8cb] rounded-xs px-3 py-2 text-xs text-[#1a1a1a] focus:outline-hidden focus:border-[#b91c1c]"
-                      />
+                    {/* Primary Photo Section */}
+                    <div className="space-y-3 p-3.5 bg-[#fbf9f4] rounded-xs border border-[#ded8cb]">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-[#1a1a1a] flex items-center gap-1.5 font-['Noto_Serif_Bengali']">
+                          <span>প্রধান ছবি (Main Featured Image)</span>
+                          <span className="text-[#b91c1c]">*</span>
+                        </label>
+                        {imageUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setImageUrl('')}
+                            className="text-[11px] text-[#b91c1c] hover:underline font-bold flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>ছবি মুছুন</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Photo Upload & URL options grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Option A: Upload from Device */}
+                        <div className="space-y-1.5">
+                          <span className="text-[11px] font-bold text-[#525252] font-['Noto_Serif_Bengali']">
+                            ডিভাইস থেকে ছবি আপলোড করুন:
+                          </span>
+                          <input
+                            ref={primaryFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handlePrimaryFileChange}
+                            className="hidden"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => primaryFileInputRef.current?.click()}
+                            className="w-full py-2.5 px-3 bg-white hover:bg-[#f3efe6] border-2 border-dashed border-[#ded8cb] hover:border-[#b91c1c] rounded-xs text-xs font-bold text-[#1a1a1a] flex items-center justify-center gap-2 transition-colors cursor-pointer font-['Noto_Serif_Bengali']"
+                          >
+                            <Upload className="w-4 h-4 text-[#b91c1c]" />
+                            <span>ফোন/পিসি থেকে ছবি বাছুন</span>
+                          </button>
+                        </div>
+
+                        {/* Option B: Direct Image URL */}
+                        <div className="space-y-1.5">
+                          <span className="text-[11px] font-bold text-[#525252] font-['Noto_Serif_Bengali']">
+                            অথবা ছবির ওয়েব লিংক দিন:
+                          </span>
+                          <input
+                            type="url"
+                            value={imageUrl.startsWith('data:') ? '' : imageUrl}
+                            onChange={(e) => setImageUrl(e.target.value)}
+                            placeholder="https://images.unsplash.com/..."
+                            className="w-full bg-white border border-[#ded8cb] rounded-xs px-3 py-2 text-xs text-[#1a1a1a] font-mono focus:outline-hidden focus:border-[#b91c1c]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Primary Image Preview if available */}
+                      {imageUrl && (
+                        <div className="flex items-center gap-3 p-2 bg-white rounded-xs border border-[#ded8cb]">
+                          <img
+                            src={imageUrl}
+                            alt="Primary Preview"
+                            className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-xs border border-[#ded8cb] shrink-0"
+                          />
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-[#059669]">
+                              <Check className="w-3.5 h-3.5" />
+                              <span>প্রধান ছবি সংযুক্ত হয়েছে</span>
+                            </div>
+                            <input
+                              type="text"
+                              value={imageCaption}
+                              onChange={(e) => setImageCaption(e.target.value)}
+                              placeholder="ছবির ক্যাপশন লিখুন (যেমন: খরাজ মুখোপাধ্যায় ও স্ত্রী প্রতিভা মুখোপাধ্যায়...)"
+                              className="w-full bg-[#fbf9f4] border border-[#ded8cb] rounded-xs px-2.5 py-1 text-xs text-[#1a1a1a] focus:outline-hidden focus:border-[#b91c1c]"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Multiple Additional Photos / Photo Gallery Section */}
+                    <div className="space-y-3 p-3.5 bg-[#fbf9f4] rounded-xs border border-[#ded8cb]">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Layers className="w-4 h-4 text-[#1d4ed8]" />
+                          <label className="text-xs font-bold text-[#1a1a1a] font-['Noto_Serif_Bengali']">
+                            অতিরিক্ত ছবি ও গ্যালারি (Multiple Additional Photos)
+                          </label>
+                        </div>
+                        <span className="text-[11px] font-bold text-[#1d4ed8] font-mono">
+                          {additionalImages.length} টি ছবি যুক্ত
+                        </span>
+                      </div>
+
+                      {/* Multi Upload & Add URL controls */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Multi File Input */}
+                        <div>
+                          <input
+                            ref={galleryFileInputRef}
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            onChange={handleGalleryFileChange}
+                            className="hidden"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => galleryFileInputRef.current?.click()}
+                            className="w-full py-2 px-3 bg-white hover:bg-[#f3efe6] border border-[#ded8cb] hover:border-[#1d4ed8] rounded-xs text-xs font-bold text-[#1a1a1a] flex items-center justify-center gap-2 transition-colors cursor-pointer font-['Noto_Serif_Bengali']"
+                          >
+                            <Plus className="w-3.5 h-3.5 text-[#1d4ed8]" />
+                            <span>একাধিক ছবি আপলোড করুন</span>
+                          </button>
+                        </div>
+
+                        {/* URL Add */}
+                        <div className="flex gap-1.5">
+                          <input
+                            type="url"
+                            value={newAddImageUrl}
+                            onChange={(e) => setNewAddImageUrl(e.target.value)}
+                            placeholder="ছবির লিংক দিন (URL)"
+                            className="flex-1 bg-white border border-[#ded8cb] rounded-xs px-2.5 py-1.5 text-xs text-[#1a1a1a] font-mono focus:outline-hidden focus:border-[#1d4ed8]"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddGalleryUrlImage}
+                            className="bg-[#1d4ed8] hover:bg-[#1e40af] text-white px-3 py-1.5 rounded-xs text-xs font-bold cursor-pointer shrink-0"
+                          >
+                            যোগ করুন
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Additional Images Thumbnail Gallery Grid */}
+                      {additionalImages.length > 0 && (
+                        <div className="space-y-2 pt-1">
+                          <span className="text-[11px] font-bold text-[#525252] font-['Noto_Serif_Bengali'] block">
+                            সংযুক্ত অতিরিক্ত ছবির তালিকা:
+                          </span>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                            {additionalImages.map((img, idx) => (
+                              <div key={idx} className="relative group bg-white border border-[#ded8cb] rounded-xs p-1.5 shadow-2xs space-y-1">
+                                <img
+                                  src={img.url}
+                                  alt={img.alt || `Gallery Image ${idx + 1}`}
+                                  className="w-full h-20 object-cover rounded-xs border border-[#ded8cb]"
+                                />
+                                <input
+                                  type="text"
+                                  value={img.caption}
+                                  onChange={(e) => {
+                                    const updated = [...additionalImages];
+                                    updated[idx] = { ...updated[idx], caption: e.target.value, alt: e.target.value };
+                                    setAdditionalImages(updated);
+                                  }}
+                                  placeholder="ক্যাপশন দিন"
+                                  className="w-full text-[10px] bg-[#fbf9f4] border border-[#ded8cb] rounded-xs px-1.5 py-0.5 focus:outline-hidden"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveGalleryImage(idx)}
+                                  className="absolute top-2 right-2 p-1 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-md cursor-pointer transition-transform hover:scale-110"
+                                  title="ছবি মুছুন"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 

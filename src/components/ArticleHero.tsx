@@ -14,7 +14,10 @@ import {
   Maximize2, 
   X, 
   Camera,
-  Heart
+  Heart,
+  ChevronLeft,
+  ChevronRight,
+  Layers
 } from 'lucide-react';
 import { NewsArticle } from '../types';
 
@@ -32,6 +35,29 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
   onShareClick,
 }) => {
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+
+  // Combine featured image and any gallery images
+  const allImages = [
+    ...(article.featuredImage ? [article.featuredImage] : []),
+    ...(article.galleryImages || [])
+  ];
+
+  const currentPhoto = allImages[selectedPhotoIndex] || article.featuredImage;
+
+  const handleNextPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (allImages.length > 0) {
+      setSelectedPhotoIndex((prev) => (prev + 1) % allImages.length);
+    }
+  };
+
+  const handlePrevPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (allImages.length > 0) {
+      setSelectedPhotoIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
+    }
+  };
 
   return (
     <header id="article-hero-section" className="space-y-5">
@@ -113,11 +139,14 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
         </div>
       </div>
 
-      {/* Lead Press Photograph of Kharaj Mukherjee & His Wife Pratibha Mukherjee */}
+      {/* Lead Press Photograph / Multiple Photos Carousel */}
       <figure className="relative bg-white border border-[#ded8cb] rounded-none sm:rounded-xs overflow-hidden shadow-2xs">
         <div 
           className="relative bg-[#1a1a1a] overflow-hidden group cursor-pointer"
-          onClick={() => setIsPhotoModalOpen(true)}
+          onClick={() => {
+            setSelectedPhotoIndex(0);
+            setIsPhotoModalOpen(true);
+          }}
         >
           {/* Main Photo Layout */}
           <div className="relative min-h-[300px] sm:min-h-[420px] lg:min-h-[460px] flex items-center justify-center bg-gradient-to-b from-[#262626] to-[#121212]">
@@ -134,8 +163,14 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
             <div className="absolute top-3 left-3 flex flex-wrap items-center gap-2">
               <span className="bg-[#b91c1c] text-white text-[11px] font-bold px-2.5 py-1 rounded-xs flex items-center gap-1.5 shadow-md font-['Noto_Serif_Bengali']">
                 <Camera className="w-3.5 h-3.5" />
-                <span>এক্সক্লুসিভ ছবি: খরাজ মুখোপাধ্যায় ও স্ত্রী প্রতিভা মুখোপাধ্যায়</span>
+                <span>{article.featuredImage?.caption || 'সংবাদের এক্সক্লুসিভ ছবি'}</span>
               </span>
+              {allImages.length > 1 && (
+                <span className="bg-[#1d4ed8] text-white text-[11px] font-bold px-2.5 py-1 rounded-xs flex items-center gap-1 shadow-md">
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>{allImages.length} টি ছবি</span>
+                </span>
+              )}
             </div>
 
             {/* Click to expand overlay hint */}
@@ -145,6 +180,36 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Thumbnail gallery strip underneath lead image if multiple images exist */}
+        {allImages.length > 1 && (
+          <div className="p-2.5 bg-[#121212] border-t border-[#262626] flex items-center gap-2 overflow-x-auto">
+            <span className="text-[11px] font-bold text-[#a3a3a3] shrink-0 font-['Noto_Serif_Bengali'] flex items-center gap-1">
+              <Layers className="w-3 h-3 text-[#f87171]" />
+              সব ছবি:
+            </span>
+            {allImages.map((img, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  setSelectedPhotoIndex(idx);
+                  setIsPhotoModalOpen(true);
+                }}
+                className={`relative shrink-0 rounded-xs overflow-hidden border-2 transition-all cursor-pointer ${
+                  selectedPhotoIndex === idx ? 'border-[#b91c1c] scale-105' : 'border-[#404040] opacity-70 hover:opacity-100'
+                }`}
+              >
+                <img
+                  src={img.url}
+                  alt={img.alt || `Photo ${idx + 1}`}
+                  referrerPolicy="no-referrer"
+                  className="w-14 h-10 sm:w-16 sm:h-11 object-cover"
+                />
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Caption & Photo Credits */}
         <figcaption className="p-3.5 sm:p-4 bg-[#fbf9f4] border-t border-[#ded8cb] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
@@ -200,8 +265,8 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
         <div className="absolute inset-0 bg-[radial-gradient(#b91c1c_1px,transparent_1px)] [background-size:16px_16px] opacity-10 pointer-events-none" />
       </div>
 
-      {/* Fullscreen Photo Lightbox Modal */}
-      {isPhotoModalOpen && article.featuredImage && (
+      {/* Fullscreen Photo Lightbox Modal with Multi-Photo Navigation */}
+      {isPhotoModalOpen && currentPhoto && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => setIsPhotoModalOpen(false)}
@@ -214,8 +279,13 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
               <div className="flex items-center gap-2">
                 <Camera className="w-4 h-4 text-[#b91c1c]" />
                 <h4 className="font-bold text-sm font-['Noto_Serif_Bengali']">
-                  খরাজ মুখোপাধ্যায় এবং তাঁর স্ত্রী প্রতিভা মুখোপাধ্যায়
+                  {currentPhoto.caption || article.title}
                 </h4>
+                {allImages.length > 1 && (
+                  <span className="text-xs bg-[#262626] text-[#fcd34d] px-2 py-0.5 rounded-xs font-mono">
+                    {selectedPhotoIndex + 1} / {allImages.length}
+                  </span>
+                )}
               </div>
               <button
                 onClick={() => setIsPhotoModalOpen(false)}
@@ -225,21 +295,43 @@ export const ArticleHero: React.FC<ArticleHeroProps> = ({
               </button>
             </div>
 
-            <div className="p-2 sm:p-4 bg-black flex items-center justify-center">
+            <div className="relative p-2 sm:p-4 bg-black flex items-center justify-center min-h-[300px]">
               <img
-                src={article.featuredImage.url}
-                alt={article.featuredImage.alt}
+                src={currentPhoto.url}
+                alt={currentPhoto.alt || article.title}
                 referrerPolicy="no-referrer"
                 className="max-h-[70vh] w-auto object-contain rounded-xs"
               />
+
+              {/* Prev / Next buttons if multiple photos */}
+              {allImages.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handlePrevPhoto}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/60 hover:bg-[#b91c1c] text-white transition-colors cursor-pointer"
+                    title="আগের ছবি"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNextPhoto}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/60 hover:bg-[#b91c1c] text-white transition-colors cursor-pointer"
+                    title="পরের ছবি"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </>
+              )}
             </div>
 
             <div className="p-4 bg-[#1a1a1a] border-t border-[#333333] space-y-1">
               <p className="text-xs sm:text-sm text-[#e5e5e5] font-['Noto_Serif_Bengali']">
-                {article.featuredImage.caption}
+                {currentPhoto.caption}
               </p>
               <div className="text-[11px] text-[#a3a3a3] font-mono">
-                {article.featuredImage.credit}
+                {currentPhoto.credit || 'BARTA PROHOR 24 ডিজিটাল ডেস্ক'}
               </div>
             </div>
           </div>
