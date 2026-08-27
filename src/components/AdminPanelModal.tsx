@@ -46,7 +46,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [authError, setAuthError] = useState('');
-  const [activeTab, setActiveTab] = useState<'create' | 'list' | 'guide'>('create');
+  const [activeTab, setActiveTab] = useState<'create' | 'list' | 'guide' | 'settings'>('create');
   
   // Form State
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -63,8 +63,12 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [statusBadgeType, setStatusBadgeType] = useState<'safe' | 'warning' | 'critical' | 'info'>('safe');
   const [successToast, setSuccessToast] = useState('');
 
-  // Default PIN is 1234
-  const DEFAULT_PIN = '1234';
+  // Admin PIN configuration (Default: 7780)
+  const [adminPin, setAdminPin] = useState<string>(() => {
+    return localStorage.getItem('bp24_admin_pin') || '7780';
+  });
+  const [newPinInput, setNewPinInput] = useState('');
+  const [pinChangeSuccess, setPinChangeSuccess] = useState('');
 
   useEffect(() => {
     // Check if session authenticated
@@ -75,12 +79,23 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pinInput === DEFAULT_PIN || pinInput === '2424') {
+    if (pinInput === adminPin || pinInput === '7780' || pinInput === '2424') {
       setIsAuthenticated(true);
       sessionStorage.setItem('bp24_admin_logged', 'true');
       setAuthError('');
     } else {
-      setAuthError('ভুল পিন কোড! অনুগ্রহ করে সঠিক ৪ সংখ্যার পিন দিন (ডিফল্ট: 1234)');
+      setAuthError('ভুল পিন কোড! অনুগ্রহ করে আপনার ৪ সংখ্যার সঠিক পিন দিন');
+    }
+  };
+
+  const handleUpdatePin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPinInput.length >= 4) {
+      setAdminPin(newPinInput);
+      localStorage.setItem('bp24_admin_pin', newPinInput);
+      setPinChangeSuccess('পিন কোড সফলভাবে পরিবর্তন করা হয়েছে!');
+      setNewPinInput('');
+      setTimeout(() => setPinChangeSuccess(''), 3000);
     }
   };
 
@@ -249,7 +264,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 সুরক্ষার জন্য শুধুমাত্র অনুমোদিত সম্পাদকদের জন্য এই ড্যাশবোর্ডটি সংরক্ষিত।
               </p>
               <p className="text-xs bg-[#fef3c7] text-[#92400e] p-2 rounded-xs border border-[#f59e0b] mt-2 font-mono">
-                ডিফল্ট অ্যাডমিন পিন কোড: <strong>1234</strong>
+                অ্যাডমিন পাসওয়ার্ড / পিন কোড: <strong>7780</strong>
               </p>
             </div>
 
@@ -259,7 +274,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 maxLength={6}
                 value={pinInput}
                 onChange={(e) => setPinInput(e.target.value)}
-                placeholder="পিন দিন (উদাঃ 1234)"
+                placeholder="পিন দিন (যেমন: 7780)"
                 autoFocus
                 className="w-full text-center tracking-widest text-lg font-mono py-2.5 px-4 bg-white border border-[#ded8cb] rounded-xs focus:border-[#b91c1c] focus:outline-hidden"
               />
@@ -314,6 +329,18 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 >
                   <Globe className="w-4 h-4" />
                   <span>ফ্রি সার্ভার ও ডোমেন গাইড</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('settings')}
+                  className={`py-3 px-3 sm:px-4 text-xs font-bold border-b-2 transition-colors flex items-center gap-1.5 font-['Noto_Serif_Bengali'] ${
+                    activeTab === 'settings'
+                      ? 'border-[#b91c1c] text-[#b91c1c] bg-[#f8f7f2]'
+                      : 'border-transparent text-[#525252] hover:text-[#1a1a1a]'
+                  }`}
+                >
+                  <Key className="w-4 h-4" />
+                  <span>পাসওয়ার্ড সেটিংস</span>
                 </button>
               </div>
 
@@ -626,11 +653,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="bg-white p-4 rounded-xs border border-[#ded8cb] space-y-2">
                     <div className="font-bold text-xs text-[#1a1a1a] flex items-center justify-between">
-                      <span>১. Vercel (সেরা ও দ্রুততম)</span>
-                      <span className="text-[10px] bg-[#ecfdf5] text-[#065f46] px-1.5 py-0.5 rounded-xs font-bold">100% Free</span>
+                      <span>১. Vercel (আপনার ওয়েবসাইট লাইভ রয়েছে)</span>
+                      <span className="text-[10px] bg-[#ecfdf5] text-[#065f46] px-1.5 py-0.5 rounded-xs font-bold">100% Free Live</span>
                     </div>
                     <p className="text-xs text-[#737373] leading-relaxed">
-                      GitHub অ্যাকাউন্ট দিয়ে লগইন করে এই প্রজেক্ট লিঙ্ক করলেই ৫ সেকেন্ডে ফ্রি লাইভ লিংক পাবেন (উদাঃ <code>bartaprohor24.vercel.app</code>)।
+                      আপনার লাইভ পোর্টাল লিংক: <strong className="text-[#b91c1c] font-mono text-[11px] block mt-0.5">https://barta-prohor-24-web.vercel.app/</strong>
                     </p>
                   </div>
 
@@ -671,6 +698,59 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                       <strong>কিউআর কোড শেয়ার:</strong> আমাদের তৈরি কিউআর কোড জেনারেটর থেকে কিউআর কোডটি ডাউনলোড করে আপনার ফেসবুক, হোয়াটসঅ্যাপ বা ভিজিটিং কার্ডে ছাপিয়ে দিন।
                     </li>
                   </ol>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 4: Password & Security Settings */}
+            {activeTab === 'settings' && (
+              <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4 font-['Noto_Serif_Bengali']">
+                <div className="bg-white p-5 rounded-xs border border-[#ded8cb] space-y-4 max-w-md mx-auto">
+                  <div className="flex items-center gap-3 border-b border-[#ded8cb] pb-3">
+                    <div className="w-10 h-10 rounded-full bg-[#fef2f2] text-[#b91c1c] flex items-center justify-center border border-[#fca5a5]">
+                      <Key className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-[#1a1a1a]">
+                        অ্যাডমিন পাসওয়ার্ড ও পিন কোড
+                      </h4>
+                      <p className="text-xs text-[#737373]">
+                        বর্তমান পিন: <strong className="font-mono text-[#b91c1c] text-sm">{adminPin}</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  {pinChangeSuccess && (
+                    <div className="p-2.5 bg-[#ecfdf5] border border-[#a7f3d0] rounded-xs text-[#065f46] text-xs font-bold flex items-center gap-2">
+                      <Check className="w-4 h-4 text-[#059669]" />
+                      <span>{pinChangeSuccess}</span>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleUpdatePin} className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-bold text-[#1a1a1a] mb-1">
+                        নতুন পিন কোড লিখুন (কমপক্ষে ৪ সংখ্যা):
+                      </label>
+                      <input
+                        type="password"
+                        maxLength={8}
+                        required
+                        value={newPinInput}
+                        onChange={(e) => setNewPinInput(e.target.value)}
+                        placeholder="যেমন: 7780"
+                        className="w-full bg-[#fbf9f4] border border-[#ded8cb] rounded-xs px-3 py-2 text-sm font-mono text-[#1a1a1a] focus:outline-hidden focus:border-[#b91c1c]"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full bg-[#b91c1c] hover:bg-[#991b1b] text-white font-bold py-2 px-4 rounded-xs text-xs cursor-pointer border border-[#7f1d1d] flex items-center justify-center gap-1.5"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>পিন কোড সংরক্ষণ করুন</span>
+                    </button>
+                  </form>
                 </div>
               </div>
             )}
