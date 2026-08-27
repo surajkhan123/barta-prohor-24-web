@@ -12,7 +12,8 @@ import {
   RefreshCw, 
   Send,
   ShieldCheck,
-  Lock
+  Lock,
+  ExternalLink
 } from 'lucide-react';
 import { 
   getRecoveryEmail, 
@@ -39,7 +40,8 @@ export const ForgotPasswordView: React.FC<ForgotPasswordViewProps> = ({
   const [step, setStep] = useState<'verify' | 'set_new_password'>('verify');
   
   // Method 1: Gmail OTP states
-  const [emailInput, setEmailInput] = useState('');
+  const registeredEmail = getRecoveryEmail() || 'surajkhanghatal@gmail.com';
+  const [emailInput, setEmailInput] = useState(registeredEmail);
   const [otpInput, setOtpInput] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpCountdown, setOtpCountdown] = useState(0);
@@ -61,7 +63,6 @@ export const ForgotPasswordView: React.FC<ForgotPasswordViewProps> = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  const registeredEmail = getRecoveryEmail();
   const { question } = getSecurityQuestion();
 
   // Masked email for display (e.g. su*******....@gmail.com)
@@ -99,7 +100,7 @@ export const ForgotPasswordView: React.FC<ForgotPasswordViewProps> = ({
     }
 
     if (cleanInputEmail !== cleanTargetEmail) {
-      setErrorMessage('প্রদত্ত জিমেইল অ্যাড্রেসটি অ্যাডমিন রেকর্ডের সাথে মেলেনি। সঠিক জিমেইল লিখুন।');
+      setErrorMessage('অননুমোদিত জিমেইল! শুধুমাত্র নিবন্ধিত মূল অ্যাডমিন জিমেইল ছাড়া অন্য কোনো ঠিকানায় ওটিপি কোড পাঠানো সম্ভব নয়।');
       return;
     }
 
@@ -379,6 +380,19 @@ export const ForgotPasswordView: React.FC<ForgotPasswordViewProps> = ({
                       <ShieldCheck className="w-4 h-4" />
                       <span>ওটিপি যাচাই করে পাসওয়ার্ড রিসেটে যান</span>
                     </button>
+
+                    <div className="pt-1 text-center">
+                      <a
+                        href="https://mail.google.com/mail/u/0/#search/Barta+Prohor+24+OR+OTP"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs text-[#2563eb] hover:underline font-bold bg-[#eff6ff] px-3 py-1.5 rounded-xs border border-[#bfdbfe]"
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                        <span>সরাসরি Gmail ইনবক্স ওপেন করুন</span>
+                        <ExternalLink className="w-3 h-3 ml-0.5" />
+                      </a>
+                    </div>
                   </div>
                 )}
               </div>

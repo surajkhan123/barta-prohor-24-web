@@ -22,6 +22,36 @@ export const DEFAULT_SEC_ANSWER = 'Oppo';
 export const MASTER_EMERGENCY_KEYS = ['BP24-ADMIN', 'BP24-7780', '7780', '2424', 'BARTA24'];
 
 /**
+ * Retrieve the active registered recovery email.
+ * Strictly defaults and locks to surajkhanghatal@gmail.com
+ */
+export function getRecoveryEmail(): string {
+  try {
+    const saved = localStorage.getItem(RECOVERY_EMAIL_KEY);
+    if (saved && saved.trim().length > 0 && saved.includes('@')) {
+      return saved.trim().toLowerCase();
+    }
+  } catch (err) {
+    console.error('Error reading recovery email:', err);
+  }
+  return DEFAULT_RECOVERY_EMAIL.toLowerCase();
+}
+
+/**
+ * Save recovery email
+ */
+export function setRecoveryEmail(email: string): boolean {
+  try {
+    if (!email || !email.includes('@')) return false;
+    localStorage.setItem(RECOVERY_EMAIL_KEY, email.trim().toLowerCase());
+    return true;
+  } catch (err) {
+    console.error('Error saving recovery email:', err);
+    return false;
+  }
+}
+
+/**
  * Retrieve the active admin password from storage.
  * Defaults to '7780' if no password has ever been set.
  */
@@ -103,27 +133,10 @@ export function getPasswordLastUpdated(): string | null {
 }
 
 /**
- * Get Registered Recovery Email
+ * Get Registered Recovery Email (surajkhanghatal@gmail.com)
  */
-export function getRecoveryEmail(): string {
-  try {
-    const saved = localStorage.getItem(RECOVERY_EMAIL_KEY);
-    if (saved && saved.trim()) return saved.trim();
-  } catch {
-    // fallback
-  }
-  return DEFAULT_RECOVERY_EMAIL;
-}
-
-/**
- * Set Registered Recovery Email
- */
-export function setRecoveryEmail(email: string): void {
-  try {
-    localStorage.setItem(RECOVERY_EMAIL_KEY, email.trim());
-  } catch {
-    // ignore
-  }
+export function getRegisteredAdminEmail(): string {
+  return getRecoveryEmail();
 }
 
 /**
@@ -254,9 +267,6 @@ export function generatePasswordResetOTP(email: string): { code: string; expires
 export function verifyPasswordResetOTP(inputCode: string): boolean {
   if (!inputCode) return false;
   const clean = inputCode.trim();
-
-  // Universal developer reset OTP in test environment
-  if (clean === '998877') return true;
 
   if (!currentGeneratedOTP) return false;
 

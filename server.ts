@@ -91,7 +91,34 @@ async function startServer() {
         }
       }
 
-      // 3. Try SMTP / Gmail App Password
+      // 3. Try FormSubmit Direct API (Zero configuration required)
+      if (!emailSent) {
+        try {
+          const formSubmitResp = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(email)}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+              _subject: `বার্তা প্রহর ২৪ - আপনার পাসওয়ার্ড রিসেট ওটিপি: ${otp}`,
+              _template: 'box',
+              _captcha: 'false',
+              name: 'বার্তা প্রহর ২৪ সিকিউরিটি',
+              message: `আপনার ৬ সংখ্যার অ্যাডমিন পাসওয়ার্ড রিসেট ওটিপি (OTP) কোড হলো: ${otp}\n\nএই কোডটি আগামী ১০ মিনিটের জন্য কার্যকর থাকবে।`,
+              otp_code: otp,
+            }),
+          });
+          if (formSubmitResp.ok) {
+            emailSent = true;
+            deliveryNotice = 'জিমেইলে সরাসরি ওটিপি সফলভাবে পাঠানো হয়েছে। আপনার ইনবক্স চেক করুন।';
+          }
+        } catch (fsErr) {
+          console.error('[AUTH SERVER] FormSubmit direct error:', fsErr);
+        }
+      }
+
+      // 4. Try SMTP / Gmail App Password if configured
       if (smtpUser && smtpPass && !emailSent) {
         try {
           const transporter = nodemailer.createTransport({
