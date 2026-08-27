@@ -15,6 +15,7 @@ import {
   Lock,
   QrCode
 } from 'lucide-react';
+import { BrandLogo } from './BrandLogo';
 
 interface HeaderProps {
   onSubscribeClick: () => void;
@@ -147,18 +148,7 @@ export const Header: React.FC<HeaderProps> = ({
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
 
-          <div className="flex flex-col items-center">
-            <div className="flex items-center gap-2">
-              <div className="bg-[#b91c1c] text-white font-black px-3 py-1 tracking-tighter text-2xl sm:text-3xl shadow-xs flex items-center gap-1.5 font-['Noto_Serif_Bengali']">
-                <span>বার্তা</span>
-                <span className="bg-[#1a1a1a] text-[#fbbf24] px-2 py-0.5 text-base sm:text-xl font-black">প্রহর</span>
-                <span className="text-white text-xl sm:text-2xl font-black">২৪</span>
-              </div>
-            </div>
-            <div className="text-[11px] font-bold text-[#525252] tracking-widest uppercase mt-0.5 font-['Noto_Serif_Bengali']">
-              BARTA PROHOR 24 • নির্ভীক • নিরপেক্ষ • তাৎক্ষণিক
-            </div>
-          </div>
+          <BrandLogo size="md" showTagline={true} />
         </div>
 
         {/* Action icons on right */}

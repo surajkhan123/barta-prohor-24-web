@@ -7,11 +7,12 @@ import {
   Globe, 
   Tv, 
   Flame, 
-  Radio,
+  Radio, 
   ArrowUp,
   Lock,
   QrCode
 } from 'lucide-react';
+import { BrandLogo } from './BrandLogo';
 
 interface FooterProps {
   onAdminClick?: () => void;
@@ -30,12 +31,8 @@ export const Footer: React.FC<FooterProps> = ({ onAdminClick, onQRClick }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Col 1: Brand Info */}
           <div className="space-y-3.5">
-            <div className="flex items-center gap-2">
-              <div className="bg-[#b91c1c] text-white font-extrabold px-2.5 py-1 rounded-xs tracking-tighter text-xl flex items-center gap-1 font-['Playfair_Display',serif]">
-                <span>BARTA</span>
-                <span className="bg-[#262626] text-[#fca5a5] px-1.5 py-0.5 rounded-xs text-sm font-black">PROHOR</span>
-                <span className="text-[#fbbf24] text-xl font-black">24</span>
-              </div>
+            <div className="flex items-start justify-start">
+              <BrandLogo size="sm" variant="dark" showTagline={false} />
             </div>
             <p className="text-xs text-[#a3a3a3] leading-relaxed font-['Noto_Serif_Bengali']">
               BARTA PROHOR 24 — নির্ভীক ও নিরপেক্ষ ডিজিটাল বাংলা সংবাদ মাধ্যম। দেশ-বিদেশ, টলিউড, রাজনীতি, আবহাওয়া ও ব্রেকিং নিউজের বিশ্বস্ত ডিজিটাল ঠিকানা।

@@ -263,18 +263,15 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
               <p className="text-xs text-[#525252] font-['Noto_Serif_Bengali']">
                 সুরক্ষার জন্য শুধুমাত্র অনুমোদিত সম্পাদকদের জন্য এই ড্যাশবোর্ডটি সংরক্ষিত।
               </p>
-              <p className="text-xs bg-[#fef3c7] text-[#92400e] p-2 rounded-xs border border-[#f59e0b] mt-2 font-mono">
-                অ্যাডমিন পাসওয়ার্ড / পিন কোড: <strong>7780</strong>
-              </p>
             </div>
 
             <form onSubmit={handleLogin} className="w-full max-w-xs space-y-3">
               <input
                 type="password"
-                maxLength={6}
+                maxLength={8}
                 value={pinInput}
                 onChange={(e) => setPinInput(e.target.value)}
-                placeholder="পিন দিন (যেমন: 7780)"
+                placeholder="গোপন পিন কোড দিন"
                 autoFocus
                 className="w-full text-center tracking-widest text-lg font-mono py-2.5 px-4 bg-white border border-[#ded8cb] rounded-xs focus:border-[#b91c1c] focus:outline-hidden"
               />

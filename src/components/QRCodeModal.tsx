@@ -17,6 +17,7 @@ import {
   Radio,
   Layers
 } from 'lucide-react';
+import { BrandLogo } from './BrandLogo';
 
 interface QRCodeModalProps {
   isOpen: boolean;
@@ -136,15 +137,15 @@ export const QRCodeModal: React.FC<QRCodeModalProps> = ({
                 <span>ONLINE 24x7</span>
               </div>
 
-              {/* Masthead Header */}
-              <div className="text-center space-y-1">
-                <h2 className="text-2xl sm:text-3xl font-black text-[#1a1a1a] tracking-tight font-['Playfair_Display',serif]">
-                  BARTA PROHOR 24
-                </h2>
-                <div className="text-[13px] font-bold text-[#b91c1c] tracking-widest uppercase">
-                  বার্তা প্রহর ২৪ • সত্যের সন্ধানে নির্ভীক প্রতিদিন
+              {/* Masthead Header with New Logo */}
+              <div className="text-center space-y-2">
+                <div className="flex items-center justify-center">
+                  <BrandLogo size="md" showTagline={false} />
                 </div>
-                <div className="w-24 h-0.5 bg-[#b91c1c] mx-auto mt-1" />
+                <div className="text-[12px] font-bold text-[#b91c1c] tracking-wider uppercase">
+                  সত্যের সন্ধানে নির্ভীক প্রতিদিন • ২৪x৭ ডিজিটাল বাংলা নিউজ
+                </div>
+                <div className="w-28 h-0.5 bg-[#b91c1c] mx-auto" />
               </div>
 
               {/* Photo & QR Centerpiece */}
